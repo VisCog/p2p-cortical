@@ -6,7 +6,7 @@ function D=p2p_ebs()
 %   Responses, and Subjective Experience Neuron. 92(6):1213?1219
 %   http://dx.doi.org/10.1016/j.neuron.2016.11.008
 close all
-sites = 4;
+sites = 1:2;
 
 Dreal = getData(sites);    % Data per trials
 opts = getPlotOpts();  % Plot options
@@ -17,29 +17,29 @@ Dreal = get_tsform(Dreal);
 c = getcorticalparams();
 
 sim=simulateData(Dreal, c); % generate simulated data to match the Winawer
-
-opts.titlestr = 'winawer (4a)';
-opts.marker = 'o';
-opts.color = 'b';
-figure_CvsA(Dreal, opts, 'subplot(3, 1, 2)');
-
-Dsim=Dreal; % replace with electrical field prediction
-opts.titlestr = 'EF phosphene (4a)';
-opts.marker = 'o';
-opts.color = 'r';
-for ii = sites
-    Dsim(ii).poly_area.val = sim.site(ii).EF.poly_area.val;
+if 0
+    opts.titlestr = 'winawer (4a)';
+    opts.marker = 'o';
+    opts.color = 'b';
+    figure_CvsA(Dreal, opts, 'subplot(3, 1, 2)');
+    
+    Dsim=Dreal; % replace with electrical field prediction
+    opts.titlestr = 'EF phosphene (4a)';
+    opts.marker = 'o';
+    opts.color = 'r';
+    for ii = sites
+        Dsim(ii).poly_area.val = sim.site(ii).EF.poly_area.val;
+    end
+    figure_CvsA(Dsim,  opts, 'subplot(3, 1, 2)');
+    
+    opts.titlestr = 'CM phosphene (4a)'; % include receptive fields
+    opts.marker = 'o';
+    opts.color = 'g';
+    for ii = sites
+        Dsim(ii).poly_area.val = sim.site(ii).CM.poly_area.val;
+    end
+    figure_CvsA(Dsim, opts, 'subplot(3, 1, 2)');
 end
-figure_CvsA(Dsim,  opts, 'subplot(3, 1, 2)');
-
-opts.titlestr = 'CM phosphene (4a)'; % include receptive fields
-opts.marker = 'o';
-opts.color = 'g';
-for ii = sites
-    Dsim(ii).poly_area.val = sim.site(ii).CM.poly_area.val;
-end
-figure_CvsA(Dsim, opts, 'subplot(3, 1, 2)');
-
 % return
 % % Figure 4b
 % figure4b(D, opts);
@@ -113,7 +113,7 @@ function Dsim = simulateData(D,c)
 
 plotcortgrid(64 * (c.orientationMap+pi)/(pi*2), c, 'Orientation pinwheels', hsv(64), 1, 'subplot(1, 1, 1)');
 plotcortgrid(64 * c.odMap, c, 'Ocular dominance columns', gray(64), 2, 'subplot(1, 1, 1)');
-plotcortgrid((64/log(15)) * log(c.sizeMap), c, 'Receptive field size', gray(64), 3, 'subplot(1, 1, 1)');
+plotcortgrid(64*c.sizeMap/6, c, 'Receptive field size', hot(64), 3, 'subplot(1, 1, 1)');
 
 % set up the temporal model for integrating current over time
 tp = gettemporalparams();
@@ -237,8 +237,8 @@ c.gridColor = [1,1,0];
 
 %c.thr = 0.014; % the level of cortical response that is considered above perceptual threshold
 % cortical and visual space parameters
-c.cortexSize = [90,180];  % %[height, width] Size of cortical maps (mm)
-c.cortexCenter = [0,0]; % center of electrode array (mm on cortex)
+c.cortexSize = [80,100];  % %[height, width] Size of cortical maps (mm)
+c.cortexCenter = [30,0]; % center of electrode array (mm on cortex)
 
 c2r = 3; % each degree is represented by about ~280 microns in the retina
 c.retinaSize = [70,70]; %  [height, width diameter in degrees]
@@ -256,6 +256,7 @@ c.n = 201;
 disp('generating visual/cortical template');
 % define cortex meshgrid
 
+
 c.xax = linspace(.5/c.pixpermm,c.cortexSize(2)-.5/c.pixpermm,c.cortexSize(2)*c.pixpermm) + c.cortexCenter(1) - c.cortexSize(2)/2;
 c.yax = linspace(.5/c.pixpermm,c.cortexSize(1)-.5/c.pixpermm,c.cortexSize(1)*c.pixpermm) + c.cortexCenter(2) - c.cortexSize(1)/2;
 [c.x,c.y] = meshgrid(c.xax,c.yax);
@@ -264,8 +265,13 @@ c.yax = linspace(.5/c.pixpermm,c.cortexSize(1)-.5/c.pixpermm,c.cortexSize(1)*c.p
 [c.orientationMap,c.odMap] = makePinwheelODMaps(c.x,c.y, 0.863);
 vr = mapinv(c, c.x+sqrt(-1)*c.y);
 c.sizeMap = max((.1652 .* abs(vr)), 0.9);
-        
-        
+
+% Define the region for cropping maps to the ranges of c.angList and c.radList
+% cropPix is used in the function 'plotcortgrid' to set the cropped pixels
+% to NaNs and black.
+c.cropPix = ~(angle(vr)<max(c.angList)*pi/180 & angle(vr)>min(c.angList)*pi/180 & abs(vr)<=max(c.radList));
+
+
 c.xrax = linspace(.5/c.pixperdeg,c.retinaSize(2)-.5/c.pixperdeg,c.retinaSize(2)*c.pixperdeg)+c.retinaCenter(1) - c.retinaSize(2)/2;
 c.yrax = linspace(.5/c.pixperdeg,c.retinaSize(1)-.5/c.pixperdeg,c.retinaSize(1)*c.pixperdeg)+c.retinaCenter(2) - c.retinaSize(1)/2;
 [c.xr,c.yr] = meshgrid(c.xrax,c.yrax);
@@ -509,6 +515,11 @@ set(gca,'YLim',[min(c.yrax(:)),max(c.yrax(:))]);
 end
 
 function plotcortgrid(img, c, titlestr, cmap,figNum, spstr)
+
+if isfield(c,'cropPix')
+    img(c.cropPix) = NaN;
+    cmap = [0,0,0;cmap];
+end
 
 fH=figure(figNum);set(fH, 'Name', titlestr);
 eval(spstr); colormap(cmap);
