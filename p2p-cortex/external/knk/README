@@ -1,0 +1,11 @@
+******************************************************************************
+This directory contains MATLAB code needed to run Population Receptive Field fitting associated with the paper, 
+
+Winawer, Kay, Foster, Parvizi, Wandell. Asynchronous broadband signals are the principal source of the BOLD response in human visual cortex. Current Biology, 2013
+
+The main function used for the paper above is 'fitprf.m'. Other functions in this repository are used by fitprf or, in a few cases, are used for organizing data structures and/or reading/writing files.
+
+The developer of the code in this directory is Kendrick Kay (kendrick@post.harvard.edu, http://kendrickkay.net). The code is related to other recent publications (Kay, Winawer, Mezer, Wandell. Compressive spatial summation in human visual cortex. Journal of Neurophysiology, 2013, doi:10.1152/jn.00105.2013; Kay, Winawer, Rokem, Mezer, Wandell. A Two-Stage Cascade Model of BOLD Responses in Human Visual Cortex. PLoS Computational Biology, 2013, doi:10.1371/journal.pcbi.1003079), and there is a separate web site associated with these publications: http://kendrickkay.net/socmodel/. The code in this directory is shared across the various publications, and a rewritten version of the code (that removes legacy content and improves clarity and simplicity) will be made available at this web site.
+
+-Jonathan Winawer
+******************************************************************************
