@@ -6,8 +6,7 @@ function D=p2p_ebs()
 %   Responses, and Subjective Experience Neuron. 92(6):1213?1219
 %   http://dx.doi.org/10.1016/j.neuron.2016.11.008
 close all
-sites = 1:2;
-
+sites = 5;
 Dreal = getData(sites);    % Data per trials
 opts = getPlotOpts();  % Plot options
 Dreal = deriveData(Dreal, opts); % Some additional derived parameters
@@ -17,28 +16,30 @@ Dreal = get_tsform(Dreal);
 c = getcorticalparams();
 
 sim=simulateData(Dreal, c); % generate simulated data to match the Winawer
-if 0
-    opts.titlestr = 'winawer (4a)';
-    opts.marker = 'o';
-    opts.color = 'b';
-    figure_CvsA(Dreal, opts, 'subplot(3, 1, 2)');
-    
-    Dsim=Dreal; % replace with electrical field prediction
-    opts.titlestr = 'EF phosphene (4a)';
-    opts.marker = 'o';
-    opts.color = 'r';
-    for ii = sites
-        Dsim(ii).poly_area.val = sim.site(ii).EF.poly_area.val;
-    end
-    figure_CvsA(Dsim,  opts, 'subplot(3, 1, 2)');
-    
-    opts.titlestr = 'CM phosphene (4a)'; % include receptive fields
-    opts.marker = 'o';
-    opts.color = 'g';
-    for ii = sites
-        Dsim(ii).poly_area.val = sim.site(ii).CM.poly_area.val;
-    end
-    figure_CvsA(Dsim, opts, 'subplot(3, 1, 2)');
+
+if 1
+opts.titlestr = 'winawer (4a)';
+opts.marker = 'o';
+opts.color = 'b';
+figure_CvsA(Dreal, opts, 'subplot(3, 1, 2)');
+
+Dsim=Dreal; % replace with electrical field prediction
+opts.titlestr = 'EF phosphene (4a)';
+opts.marker = 'o';
+opts.color = 'r';
+for ii = sites
+    Dsim(ii).poly_area.val = sim(ii).EF.poly_area.val;
+end
+figure_CvsA(Dsim,  opts, 'subplot(3, 1, 2)');
+
+opts.titlestr = 'CM phosphene (4a)'; % include receptive fields
+opts.marker = 'o';
+opts.color = 'g';
+for ii = sites
+    Dsim(ii).poly_area.val = sim(ii).CM.poly_area.val;
+end
+figure_CvsA(Dsim, opts, 'subplot(3, 1, 2)');
+end
 end
 % return
 % % Figure 4b
@@ -115,19 +116,34 @@ plotcortgrid(64 * (c.orientationMap+pi)/(pi*2), c, 'Orientation pinwheels', hsv(
 plotcortgrid(64 * c.odMap, c, 'Ocular dominance columns', gray(64), 2, 'subplot(1, 1, 1)');
 plotcortgrid(64*c.sizeMap/6, c, 'Receptive field size', hot(64), 3, 'subplot(1, 1, 1)');
 
+  if c.smallflag
+            Dsim(1).EF.drawingthreshold =  41.4854;
+            Dsim(1).CM.drawingthreshold = 41.3328;
+            Dsim(2).EF.drawingthreshold = 73.1133;
+            Dsim(2).CM.drawingthreshold = 80.668;
+            Dsim(3).EF.drawingthreshold = 24.7656;
+            Dsim(3).CM.drawingthreshold = 35.6641;
+            Dsim(4).EF.drawingthreshold = 40.875;
+            Dsim(4).CM.drawingthreshold = 41.5313;
+            Dsim(5).EF.drawingthreshold = 224.25;
+            Dsim(5).CM.drawingthreshold = 239;
+            
+  end
+        
 % set up the temporal model for integrating current over time
 tp = gettemporalparams();
 
 for ii=1:length(D) % for each site
+    
     if ~isempty(D(ii).condition)
-        
+      
         disp(['simulating electric field for site ', num2str(ii)])
-        Dsim.site(ii).EF.cortex = makeElectrodeERF(c, c.xy_cort(ii, :), c.e_size(ii));
-        plotcortgrid(reshape(Dsim.site(ii).EF.cortex * 64,size(c.x)), c, 'electric field', gray(64), 10+ii, 'subplot(3,1,3)');
+        Dsim(ii).EF.cortex = makeElectrodeERF(c, c.xy_cort(ii, :), c.e_size(ii));
+        plotcortgrid(reshape(Dsim(ii).EF.cortex * 64,size(c.x)), c, 'electric field', gray(64), 10+ii, 'subplot(3,1,3)');
         
         disp(['simulating phosphene for site ', num2str(ii)])
-        Dsim.site(ii).EF.normalizedphosphene = zeros(size(c.xr)); % percept based on electric field
-        Dsim.site(ii).CM.normalizedphosphene = zeros(size(c.xr)); % percept that includes a cortical model
+        Dsim(ii).EF.normalizedphosphene = zeros(size(c.xr)); % percept based on electric field
+        Dsim(ii).CM.normalizedphosphene = zeros(size(c.xr)); % percept that includes a cortical model
         
         % map from cortex to retinal coordinates`
         % based figure in Simoncelli and Freeman, Metamers ventral stream, NN 2011
@@ -138,9 +154,9 @@ for ii=1:length(D) % for each site
         
         for pixNum = 1:length(c.x(:))
             if mod(pixNum, 1000)==0
-                disp([num2str(round((100*pixNum)/length(c.x(:)))),  '% complete' ]);
+           %     disp([num2str(round((100*pixNum)/length(c.x(:)))),  '% complete' ]);
             end
-            if Dsim.site(ii).EF.cortex(pixNum) > 0.25
+            if Dsim(ii).EF.cortex(pixNum) > 0.25
                 
                 % Oriented gaussian
                 xrot =  (c.xr-real(vr(pixNum))) * cos(c.orientationMap(pixNum)) +  ...
@@ -149,49 +165,54 @@ for ii=1:length(D) % for each site
                     (c.yr-imag(vr(pixNum))) * cos(c.orientationMap(pixNum));
                 % scoreboard version
                 G_scoreboard = exp(-( xrot.^2/(0.1) + yrot.^2/(.1)));
-                Dsim.site(ii).EF.normalizedphosphene =  Dsim.site(ii).EF.normalizedphosphene + Dsim.site(ii).EF.cortex(pixNum) * G_scoreboard;
+                Dsim(ii).EF.normalizedphosphene =  Dsim(ii).EF.normalizedphosphene + Dsim(ii).EF.cortex(pixNum) * G_scoreboard;
                 
                 % Cortical Model version
                 G = exp(-( xrot.^2/(2 * RFsize(pixNum) * c.ar) + yrot.^2/(2 * RFsize(pixNum))));
-                Dsim.site(ii).CM.normalizedphosphene =    Dsim.site(ii).CM.normalizedphosphene  + ...
-                    Dsim.site(ii).EF.cortex(pixNum) * G;
-                Dsim.site(ii).CM.normalizedphospheneOE =  Dsim.site(ii).CM.normalizedphosphene  + ...
-                    (1-c.odMap(pixNum)) * Dsim.site(ii).EF.cortex(pixNum) * G;
+                Dsim(ii).CM.normalizedphosphene =    Dsim(ii).CM.normalizedphosphene  + ...
+                    Dsim(ii).EF.cortex(pixNum) * G;
+                Dsim(ii).CM.normalizedphospheneOE =  Dsim(ii).CM.normalizedphosphene  + ...
+                    (1-c.odMap(pixNum)) * Dsim(ii).EF.cortex(pixNum) * G;
                 
             end
         end
         
         % create normalized phosphene
-        Dsim.site(ii).EF.normalizedphosphene = 100 * Dsim.site(ii).EF.normalizedphosphene/max(Dsim.site(ii).EF.normalizedphosphene(:));
-        Dsim.site(ii).CM.normalizedphosphene = 100 * Dsim.site(ii).CM.normalizedphosphene/max(Dsim.site(ii).CM.normalizedphosphene(:));
+        Dsim(ii).EF.normalizedphosphene = 100 * Dsim(ii).EF.normalizedphosphene/max(Dsim(ii).EF.normalizedphosphene(:));
+        Dsim(ii).CM.normalizedphosphene = 100 * Dsim(ii).CM.normalizedphosphene/max(Dsim(ii).CM.normalizedphosphene(:));
         if ii==1, isflipped = 0; % is the phosphene on the right visual field
         else    isflipped = 1; end
-        plotretgrid(Dsim.site(ii).EF.normalizedphosphene * .64, c, isflipped, 'EF phosphene', gray(64), 10+ii, 'subplot(3,2,1)');
-        plotretgrid(Dsim.site(ii).CM.normalizedphosphene * .64, c, isflipped, 'CM phosphene', gray(64), 10+ii, 'subplot(3,2,2)');
+        plotretgrid(Dsim(ii).EF.normalizedphosphene * .64, c, isflipped, 'EF phosphene', gray(64), 10+ii, 'subplot(3,2,1)');
+        plotretgrid(Dsim(ii).CM.normalizedphosphene * .64, c, isflipped, 'CM phosphene', gray(64), 10+ii, 'subplot(3,2,2)');
         
         % calculate the neural response over time for the condition
         for cc=1:length(D(ii).condition.val)
-            Dsim.site(ii).CI.val(cc) = max(p2p_finite_element(tp, D(ii).tsform(cc).val)); % the scaling due to current integration over time
+            Dsim(ii).CI.val(cc) = 100 * max(p2p_finite_element(tp, D(ii).tsform(cc).val)); % the scaling due to current integration over time
         end
         
-        gvals=logical(~isnan(D(ii).poly_area.val) & D(ii).poly_area.val>0);
+        
+        gvals=find(D(ii).stimulation_data>0);
+        if ii==5; gvals=setdiff(gvals,3:5); end
+     
         
         if ~c.smallflag
-            p.thr = 0.5;  p=UWfit('findDrawingThreshold', p, {'thr'}, Dsim.site(ii).EF.normalizedphosphene(:), Dsim.site(ii).CI.val(gvals), ...
+            p.thr = 5;  p=UWfit('findDrawingThreshold', p, {'thr'}, Dsim(ii).EF.normalizedphosphene(:), Dsim(ii).CI.val(gvals), ...
                 (D(ii).poly_area.val(gvals) * c.pixperdeg^2));
-            Dsim.site(ii).EF.drawingthreshold = p.thr;
-            disp(['EF drawing threshold = ', num2str(Dsim.site(ii).EF.drawingthreshold)]);
+            Dsim(ii).EF.drawingthreshold = p.thr;
+            disp(['EF drawing threshold = ', num2str(Dsim(ii).EF.drawingthreshold)]);
             
-            p.thr = 0.5; p=UWfit('findDrawingThreshold', p, {'thr'}, Dsim.site(ii).CM.normalizedphosphene(:), Dsim.site(ii).CI.val(gvals), ...
+            p.thr = 5; p=UWfit('findDrawingThreshold', p, {'thr'}, Dsim(ii).CM.normalizedphosphene(:), Dsim(ii).CI.val(gvals), ...
                 (D(ii).poly_area.val(gvals) * c.pixperdeg^2));
-            Dsim.site(ii).CM.drawingthreshold = p.thr;
-            disp(['CM drawing threshold = ', num2str(Dsim.site(ii).CM.drawingthreshold)]);
+            Dsim(ii).CM.drawingthreshold = p.thr;
+            disp(['CM drawing threshold = ', num2str(Dsim(ii).CM.drawingthreshold)]);
         end
         for cc=1:length(D(ii).condition.val)
-            Dsim.site(ii).EF.poly_area.val(cc) = (1/(c.pixperdeg^2)) * ...
-                length( find((Dsim.site(ii).EF.normalizedphosphene(:) * Dsim.site(ii).CI.val(cc) )>  Dsim.site(ii).EF.drawingthreshold) );
-            Dsim.site(ii).CM.poly_area.val(cc) = (1/(c.pixperdeg^2)) * ...
-                length( find((Dsim.site(ii).CM.normalizedphosphene(:) * Dsim.site(ii).CI.val(cc) )>  Dsim.site(ii).CM.drawingthreshold) );
+            Dsim(ii).EF.poly_area.val(cc) = (1/(c.pixperdeg^2)) * ...
+                length( find((Dsim(ii).EF.normalizedphosphene(:) * ...
+                Dsim(ii).CI.val(cc) )>  Dsim(ii).EF.drawingthreshold) );
+            Dsim(ii).CM.poly_area.val(cc) = (1/(c.pixperdeg^2)) * ...
+                length( find((Dsim(ii).CM.normalizedphosphene(:) * ...
+                Dsim(ii).CI.val(cc) )>  Dsim(ii).CM.drawingthreshold) );
         end
         
     end
@@ -205,12 +226,8 @@ c.smallflag = 0;
 
 if c.smallflag
     c.e_size=[50/1000; 50/1000;  50/1000;  50/1000;  50/1000];
-    
-    Dsim.site(ii).EF.drawingthreshold = .1;
-    Dsim.site(ii).CM.drawingthreshold = .1;
 else
     c.e_size=[1150/1000; 510/1000;  1150/1000;  1150/1000;  1150/1000];
-    
 end
 
 % USING CORTICAL POSITION
@@ -240,12 +257,13 @@ c.gridColor = [1,1,0];
 c.cortexSize = [80,100];  % %[height, width] Size of cortical maps (mm)
 c.cortexCenter = [30,0]; % center of electrode array (mm on cortex)
 
-c2r = 6; % each degree is represented by about ~280 microns in the retina
+
+c2r = 5; % each degree is represented by about ~280 microns in the retina
 c.retinaSize = [70,70]; %  [height, width diameter in degrees]
 c.retinaCenter = [0,0];
 
 % define the resolution of the cortical and visual maps
-c.pixpermm = 20;% choose the resolution to sample in mm.
+c.pixpermm = 5;% choose the resolution to sample in mm.
 c.pixperdeg = c.pixpermm*c2r;
 
 %Make the grid in retinal coordinates
@@ -255,8 +273,6 @@ c.n = 201;
 
 disp('generating visual/cortical template');
 % define cortex meshgrid
-
-
 c.xax = linspace(.5/c.pixpermm,c.cortexSize(2)-.5/c.pixpermm,c.cortexSize(2)*c.pixpermm) + c.cortexCenter(1) - c.cortexSize(2)/2;
 c.yax = linspace(.5/c.pixpermm,c.cortexSize(1)-.5/c.pixpermm,c.cortexSize(1)*c.pixpermm) + c.cortexCenter(2) - c.cortexSize(1)/2;
 [c.x,c.y] = meshgrid(c.xax,c.yax);
@@ -270,7 +286,6 @@ c.sizeMap = max((.1652 .* abs(vr)), 0.9);
 % cropPix is used in the function 'plotcortgrid' to set the cropped pixels
 % to NaNs and black.
 c.cropPix = ~(angle(vr)<max(c.angList)*pi/180 & angle(vr)>min(c.angList)*pi/180 & abs(vr)<=max(c.radList));
-
 
 c.xrax = linspace(.5/c.pixperdeg,c.retinaSize(2)-.5/c.pixperdeg,c.retinaSize(2)*c.pixperdeg)+c.retinaCenter(1) - c.retinaSize(2)/2;
 c.yrax = linspace(.5/c.pixperdeg,c.retinaSize(1)-.5/c.pixperdeg,c.retinaSize(1)*c.pixperdeg)+c.retinaCenter(2) - c.retinaSize(1)/2;
@@ -575,7 +590,7 @@ for ii = 1:length(D)
         set(gca, 'YScale', opts.yscale, 'XScale', opts.xscale, 'XTick', 10.^[0 1 2 3], 'XLim', 10.^[0 3])
         if strcmp(opts.yscale, 'log'), set(gca, 'YLim', 10.^[-3 3]); end
         
-        xlabel('Charge Deposited per Trial (µC)')
+        xlabel('Charge Deposited per Trial (ÂµC)')
         ylabel('Phosphene size (deg^2)')
     end
 end
@@ -613,7 +628,7 @@ for ii = 1:length(D)
     plot(x_all,  pred_y, 'Color', opts.colors(ii,:), 'LineWidth', 2)
 end
 
-xlabel('Charge Deposited Per Trial (µC)');
+xlabel('Charge Deposited Per Trial (ÂµC)');
 ylabel('Cortical Area (mm^2)');
 
 set(gca, 'YScale', opts.yscale, 'XScale', opts.xscale, 'XLim', 10.^[0 3], 'XTick', 10.^[0 1 2 3])
@@ -731,7 +746,7 @@ set(gca, 'YScale', yscale, 'XScale', opts.xscale, 'YLim', [0 11], ...
     'YTick', 0:2:10, 'XLim', 10.^[0 3], 'XTick', 10.^[0 1 2 3])
 if strcmp(yscale, 'log'), set(gca, 'YLim', 10.^[0 1]); end
 
-xlabel('Charge Deposited per Trial (µC)')
+xlabel('Charge Deposited per Trial (ÂµC)')
 ylabel('Subjective rating')
 
 end
