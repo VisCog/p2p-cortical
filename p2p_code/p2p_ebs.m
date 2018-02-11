@@ -6,7 +6,8 @@ function D=p2p_ebs()
 %   Responses, and Subjective Experience Neuron. 92(6):1213?1219
 %   http://dx.doi.org/10.1016/j.neuron.2016.11.008
 close all
-sites = 5;
+
+sites = 1;
 
 Dreal = getData(sites);    % Data per trials
 opts = getPlotOpts();  % Plot options
@@ -17,6 +18,7 @@ Dreal = get_tsform(Dreal);
 c = getcorticalparams();
 
 sim=simulateData(Dreal, c); % generate simulated data to match the Winawer
+
 if 1
 opts.titlestr = 'winawer (4a)';
 opts.marker = 'o';
@@ -40,6 +42,7 @@ for ii = sites
 end
 figure_CvsA(Dsim, opts, 'subplot(3, 1, 2)');
  end
+
 % return
 % % Figure 4b
 % figure4b(D, opts);
@@ -113,7 +116,7 @@ function Dsim = simulateData(D,c)
 
 plotcortgrid(64 * (c.orientationMap+pi)/(pi*2), c, 'Orientation pinwheels', hsv(64), 1, 'subplot(1, 1, 1)');
 plotcortgrid(64 * c.odMap, c, 'Ocular dominance columns', gray(64), 2, 'subplot(1, 1, 1)');
-plotcortgrid((64/log(15)) * log(c.sizeMap), c, 'Receptive field size', gray(64), 3, 'subplot(1, 1, 1)');
+plotcortgrid(64*c.sizeMap/6, c, 'Receptive field size', hot(64), 3, 'subplot(1, 1, 1)');
 
   if c.smallflag
             Dsim(1).EF.drawingthreshold =  41.4854;
@@ -222,7 +225,7 @@ end % site
 
 function c = getcorticalparams()
 
-c.smallflag = 0;
+c.smallflag = 1;
 
 if c.smallflag
     c.e_size=[50/1000; 50/1000;  50/1000;  50/1000;  50/1000];
@@ -254,14 +257,16 @@ c.gridColor = [1,1,0];
 
 %c.thr = 0.014; % the level of cortical response that is considered above perceptual threshold
 % cortical and visual space parameters
-c.cortexSize = [90,180];  % %[height, width] Size of cortical maps (mm)
-c.cortexCenter = [0,0]; % center of electrode array (mm on cortex)
+c.cortexSize = [80,100];  % %[height, width] Size of cortical maps (mm)
+c.cortexCenter = [30,0]; % center of electrode array (mm on cortex)
+
 
 c2r = 5; % each degree is represented by about ~280 microns in the retina
 c.retinaSize = [70,70]; %  [height, width diameter in degrees]
 c.retinaCenter = [0,0];
 
 % define the resolution of the cortical and visual maps
+
 c.pixpermm = 5;% choose the resolution to sample in mm.
 c.pixperdeg = c.pixpermm*c2r;
 
@@ -273,6 +278,7 @@ c.n = 201;
 disp('generating visual/cortical template');
 % define cortex meshgrid
 
+
 c.xax = linspace(.5/c.pixpermm,c.cortexSize(2)-.5/c.pixpermm,c.cortexSize(2)*c.pixpermm) + c.cortexCenter(1) - c.cortexSize(2)/2;
 c.yax = linspace(.5/c.pixpermm,c.cortexSize(1)-.5/c.pixpermm,c.cortexSize(1)*c.pixpermm) + c.cortexCenter(2) - c.cortexSize(1)/2;
 [c.x,c.y] = meshgrid(c.xax,c.yax);
@@ -282,6 +288,11 @@ c.yax = linspace(.5/c.pixpermm,c.cortexSize(1)-.5/c.pixpermm,c.cortexSize(1)*c.p
 vr = mapinv(c, c.x+sqrt(-1)*c.y);
 c.sizeMap = max((.1652 .* abs(vr)), 0.9);
 
+
+% Define the region for cropping maps to the ranges of c.angList and c.radList
+% cropPix is used in the function 'plotcortgrid' to set the cropped pixels
+% to NaNs and black.
+c.cropPix = ~(angle(vr)<max(c.angList)*pi/180 & angle(vr)>min(c.angList)*pi/180 & abs(vr)<=max(c.radList));
 
 c.xrax = linspace(.5/c.pixperdeg,c.retinaSize(2)-.5/c.pixperdeg,c.retinaSize(2)*c.pixperdeg)+c.retinaCenter(1) - c.retinaSize(2)/2;
 c.yrax = linspace(.5/c.pixperdeg,c.retinaSize(1)-.5/c.pixperdeg,c.retinaSize(1)*c.pixperdeg)+c.retinaCenter(2) - c.retinaSize(1)/2;
@@ -527,6 +538,12 @@ end
 
 function plotcortgrid(img, c, titlestr, cmap,figNum, spstr)
 
+if isfield(c,'cropPix')
+    img(c.cropPix) = NaN;
+    img= img+2;
+    cmap = [0,0,0;cmap];
+end
+
 fH=figure(figNum);set(fH, 'Name', titlestr);
 eval(spstr); colormap(cmap);
 image(c.xax, c.yax, flipud(img)); hold on
@@ -580,7 +597,7 @@ for ii = 1:length(D)
         set(gca, 'YScale', opts.yscale, 'XScale', opts.xscale, 'XTick', 10.^[0 1 2 3], 'XLim', 10.^[0 3])
         if strcmp(opts.yscale, 'log'), set(gca, 'YLim', 10.^[-3 3]); end
         
-        xlabel('Charge Deposited per Trial (µC)')
+        xlabel('Charge Deposited per Trial (ÂµC)')
         ylabel('Phosphene size (deg^2)')
     end
 end
@@ -618,7 +635,7 @@ for ii = 1:length(D)
     plot(x_all,  pred_y, 'Color', opts.colors(ii,:), 'LineWidth', 2)
 end
 
-xlabel('Charge Deposited Per Trial (µC)');
+xlabel('Charge Deposited Per Trial (ÂµC)');
 ylabel('Cortical Area (mm^2)');
 
 set(gca, 'YScale', opts.yscale, 'XScale', opts.xscale, 'XLim', 10.^[0 3], 'XTick', 10.^[0 1 2 3])
@@ -736,7 +753,7 @@ set(gca, 'YScale', yscale, 'XScale', opts.xscale, 'YLim', [0 11], ...
     'YTick', 0:2:10, 'XLim', 10.^[0 3], 'XTick', 10.^[0 1 2 3])
 if strcmp(yscale, 'log'), set(gca, 'YLim', 10.^[0 1]); end
 
-xlabel('Charge Deposited per Trial (µC)')
+xlabel('Charge Deposited per Trial (ÂµC)')
 ylabel('Subjective rating')
 
 end
