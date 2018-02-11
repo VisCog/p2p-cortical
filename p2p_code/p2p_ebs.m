@@ -6,7 +6,7 @@ function D=p2p_ebs()
 %   Responses, and Subjective Experience Neuron. 92(6):1213?1219
 %   http://dx.doi.org/10.1016/j.neuron.2016.11.008
 close all
-sites = 1:2;
+sites = 1;
 
 Dreal = getData(sites);    % Data per trials
 opts = getPlotOpts();  % Plot options
@@ -201,7 +201,7 @@ end % site
 
 function c = getcorticalparams()
 
-c.smallflag = 0;
+c.smallflag = 1;
 
 if c.smallflag
     c.e_size=[50/1000; 50/1000;  50/1000;  50/1000;  50/1000];
@@ -240,12 +240,12 @@ c.gridColor = [1,1,0];
 c.cortexSize = [80,100];  % %[height, width] Size of cortical maps (mm)
 c.cortexCenter = [30,0]; % center of electrode array (mm on cortex)
 
-c2r = 3; % each degree is represented by about ~280 microns in the retina
+c2r = 6; % each degree is represented by about ~280 microns in the retina
 c.retinaSize = [70,70]; %  [height, width diameter in degrees]
 c.retinaCenter = [0,0];
 
 % define the resolution of the cortical and visual maps
-c.pixpermm = 3;% choose the resolution to sample in mm.
+c.pixpermm = 20;% choose the resolution to sample in mm.
 c.pixperdeg = c.pixpermm*c2r;
 
 %Make the grid in retinal coordinates
@@ -518,6 +518,7 @@ function plotcortgrid(img, c, titlestr, cmap,figNum, spstr)
 
 if isfield(c,'cropPix')
     img(c.cropPix) = NaN;
+    img= img+2;
     cmap = [0,0,0;cmap];
 end
 
