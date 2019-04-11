@@ -1,13 +1,17 @@
 function D=p2p_ebs()
-% Reproduce Figure 4 for the following paper:
+% 
+% Cortical pulse2percept model
+%
+% Some code based on:
 %
 %   Winawer and Parvizi (2016). Linking Electrical Stimulation of Human
 %   Primary Visual Cortex, Size of Affected Cortical Area, Neuronal
 %   Responses, and Subjective Experience Neuron. 92(6):1213?1219
 %   http://dx.doi.org/10.1016/j.neuron.2016.11.008
+
 close all
 
-sites = 1:5;
+sites = 1;
 
 Dreal = getData(sites);    % Data per trials
 opts = getPlotOpts();  % Plot options
@@ -313,52 +317,6 @@ c.zRad = c.radList'*exp(sqrt(-1)*linspace(-90,90,c.n)*pi/180);
 % project the grid to cortical coordinates (mapinv goes the other way)
 c.wAng = map(c, c.zAng);
 c.wRad = map(c, c.zRad);
-
-end
-
-function [pinwheel,OD] = makePinwheelODMaps(x,y,sig, ODsize)
-% [pinwheel,OD] = makePinwheelODMaps(x,y,sig)
-%
-% sig determines the distribution of OD values. Default is 5.  The larger
-% sig, the more the distribution tends toward 0 and 1.
-
-%initial parameters:
-
-if ~exist('sig','var')
-    sig = .5; % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex.
-end
-if ~exist('ODsize','var')
-    ODsize = 0.863; % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex.
-end
-
-FOV = [range(x(1,:)),range(y(:,1))];
-sz = size(x);
-pixpermm = sz/FOV;
-% Rojer and Schwartz' method of bandpassing random noise:
-
-% Rojer, A.S. and E.L. Schwartz, Cat and monkey cortical columnar patterns
-%modeled by bandpass-filtered 2D white noise. Biol Cybern, 1990. 62(5): c. 381-91.
-
-%Make random noise: complex numbers where the angle is the orientation
-z = exp(sqrt(-1)*rand(sz)*pi*2);
-
-%Make a gabor filter
-filtSz = 3; % 3mm
-%sig = 5; %  .8 mm
-freq = 1/ODsize; %cycles/mm (Try zero for big columns)
-filtPix = ceil(filtSz*pixpermm);
-[x,y] = meshgrid(linspace(-filtSz/2,filtSz/2,filtPix),linspace(-filtSz/2,filtSz/2,filtPix));
-r = sqrt(x.^2+y.^2);
-filt = exp(-r.^2/sig.^2).*cos(2*pi*freq*r);  %Gabor
-
-%Convolve z with the filter
-w = conv2(z,filt,'same');
-pinwheel = angle(w);
-
-[WX,~] = gradient(w);
-
-Gx = angle(WX);
-OD = normcdf(Gx*sig);
 
 end
 
