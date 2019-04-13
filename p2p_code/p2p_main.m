@@ -9,7 +9,7 @@ c = find_rf_in_c(c);
 
 tp = define_temporalparameters();
 trls = define_trials(tp);
-return
+
 plotcortgrid(64 * (c.ORmap+pi)/(pi*2), c, 'Orientation pinwheels', hsv(64), 1, 'subplot(1, 1, 1)');
 plotcortgrid(64 * c.ODmap, c, 'Ocular dominance columns', gray(64), 2, 'subplot(1, 1, 1)');
 plotcortgrid(15* c.RFmap, c, 'Receptive field size', hot(64), 3, 'subplot(1, 1, 1)');
@@ -59,7 +59,7 @@ c.cortexCenter = [30,0]; % center of electrode array (mm on cortex)
 c.pixpermm = 5; % choose the resolution to sample in mm.
 c.ethr = .5; % choose the electrical current considered threshold
 end
-function c = define_electrodes(c,v)
+function c = define_electrodes(c, v)
 % either needs an electrode position in cortical co-ordinates
 % or needs to take in the position of the electrode in visual co-ordinates
 c.e.size = 2000/1000;
