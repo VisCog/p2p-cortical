@@ -3,11 +3,13 @@ c = define_cortex();
 v = define_visualmap();
 c = generate_corticalmap(c, v);
 
+[c, v] = generate_transforms(c, v);
 c = define_electrodes(c, v);
-c = c2v(c);
 c = find_rf_in_c(c);
-c = gridv2c(c,v); % move visual grid to cortex
 
+tp = define_temporalparameters();
+trls = define_trials(tp);
+return
 plotcortgrid(64 * (c.ORmap+pi)/(pi*2), c, 'Orientation pinwheels', hsv(64), 1, 'subplot(1, 1, 1)');
 plotcortgrid(64 * c.ODmap, c, 'Ocular dominance columns', gray(64), 2, 'subplot(1, 1, 1)');
 plotcortgrid(15* c.RFmap, c, 'Receptive field size', hot(64), 3, 'subplot(1, 1, 1)');
@@ -16,18 +18,16 @@ c = generate_ef(c);
 plotcortgrid(c.e.ef * 64, c, 'electric field', gray(64), 4, 'subplot(1,1,1)');
 v = generate_rfmap(c, v);
 plotretgrid(v.e.rfmap(:, :, 1)*64, c, v,'rfmap', gray(64), 10, 'subplot(1,3,1)');
-plotretgrid(v.e.rfmap_noRF*64    , c, v, 'rfmap no RF', gray(64), 10, 'subplot(1,3,2)');
+plotretgrid(v.e.rfmap_noRF*64, c, v, 'rfmap no RF', gray(64), 10, 'subplot(1,3,2)');
 
-
-tp = define_temporalparameters();
-trls = define_trials(tp);
 v = generate_phosphene(v, tp, trls);
 plotretgrid(v.trls(1).maxphos(:, :, 1)*64, c, v,'phosphene', gray(64), 10, 'subplot(1,3,3)');
 end
 
 % definitions
 function v = define_visualmap()
-v.e.pos = [26, 30]; % position of the electode in visual co-ordinates
+v.e.ang = 19.8; % position of the electode in visual co-ordinates
+v.e.ecc = 26.6;
 v.retinaSize = [70,70]; %  [height, width diameter in degrees]
 v.retinaCenter = [0,0];
 v.pixperdeg = 10;
@@ -39,8 +39,6 @@ v.y = linspace(.5/v.pixperdeg,v.retinaSize(1)-.5/v.pixperdeg,v.retinaSize(1)*v.p
 v.angList = -90:20:90;
 v.eccList = [1 2 3 5 8 13 21 34];
 v.n = 201;
-v.zAng = linspace(0,max(v.eccList),v.n)'*exp(sqrt(-1)*v.angList*pi/180);
-v.zRad = v.eccList'*exp(sqrt(-1)*linspace(-90,90,v.n)*pi/180);
 end
 function c = define_cortex()
 % cortical magnification, typical log z transformation parameters (Based on Duncan and Boynton)
@@ -64,11 +62,8 @@ end
 function c = define_electrodes(c,v)
 % either needs an electrode position in cortical co-ordinates
 % or needs to take in the position of the electrode in visual co-ordinates
-c.e.size = 1150/1000;
+c.e.size = 2000/1000;
 c.e.hemi = 'rh';
-if ~isfield(c.e, 'pos')
-    c.e.pos = vpos2cpos(v.e.pos, c);
-end
 % current spread parameters, based on Ahuja
 c.e.afac=1.69; % parameters for current spread
 c.e.ct=14;
@@ -85,7 +80,7 @@ c = generate_ORmapODmap(c);
 end
 function c = find_rf_in_c(c)
 % finds the angle, eccentricity and size of rfs for every point in cortex
-c.RFmap = max(.1652 .* c.c2v.ECC, 0.9);
+c.RFmap = max(.1652 .* abs(c.v2c.ECC), 0.9);
 end
 function [c] = generate_ORmapODmap(c)
 % [pinwheel,OD] = makePinwheelODMaps(x,y,sig)
@@ -123,7 +118,7 @@ function [c] = generate_ef(c)
 if ~isfield(c.e, 'boxsize') % how far from each electrode to simulate
     c.e.boxsize = 3;
 end
-R=sqrt((c.X-c.e.pos(1)).^2+(c.Y-c.e.pos(2)).^2);
+R=sqrt((c.X-c.e.x).^2+(c.Y-c.e.y).^2);
 pt_ef = ones(size(c.X));
 pt_ef(R>c.e.size)=2/pi*(asin(c.e.size./R(R>c.e.size)));
 ss=c.x(1,2)-c.x(1,1);
@@ -134,7 +129,7 @@ ef = conv2(pt_ef, C_att, 'same');
 ef=ef(:)./max(ef(:));
 c.e.ef = reshape(ef,size(c.X));
 end
-function [v]  = generate_rfmap(c, v)
+function [v] = generate_rfmap(c, v)
 % generates the sum of weighted receptive fields activated by an electrode
 % normalized so the max is 1
 cosMap = cos(c.ORmap);
@@ -147,8 +142,8 @@ for pixNum = 1:length(c.X(:))
         disp([num2str(round((100*pixNum)/length(c.X(:)))),  '% complete' ]);
     end
     if c.e.ef(pixNum) > c.ethr
-        x0 = c.c2v.X(pixNum); % x center
-        y0 = c.c2v.Y(pixNum); % y center
+        x0 = c.v2c.X(pixNum); % x center
+        y0 = c.v2c.Y(pixNum); % y center
         theta = pi-c.ORmap(pixNum);  %orientation
         sigma_x = c.RFmap(pixNum) * c.ar; % major axis sd
         sigma_y = c.RFmap(pixNum); % minor axis sd
@@ -165,8 +160,7 @@ for pixNum = 1:length(c.X(:))
         v.e.rfmap(:, :, 2)  =   v.e.rfmap(:, :, 2)  + (1-c.ODmap(pixNum))*G;
         
         % scoreboard version
-        v.e.rfmap_noRF = v.e.rfmap_noRF + (c.e.ef(pixNum) * exp(-( (v.X-x0).^2/(0.1) + (v.Y-y0).^2/(.1))));
-        
+        v.e.rfmap_noRF = v.e.rfmap_noRF + (c.e.ef(pixNum) * exp(-( (v.X-x0).^2/(0.1) + (v.Y-y0).^2/(.1))));        
     end
 end
 v.e.rfmap_noRF = v.e.rfmap_noRF./max(v.e.rfmap_noRF(:));
@@ -175,42 +169,54 @@ end
 function v = generate_phosphene(v, tp, trls)
 % calculate the neural response over time for each trial
 for t=1:length(trls)
-    v.trls(t).maxphos = v.e.rfmap.*max(p2p_finite_element(tp, trls(t))); % the scaling due to current integration over time
+    if ~isnan(trls(t).freq)
+    tp = p2p_finite_element(tp, trls(t));
+    v.trls(t).maxphos = v.e.rfmap.*max(tp.resp); % the scaling due to current integration over time
+    else
+        v.trls(t).maxphos = v.e.rfmap; % the scaling due to current integration
+    end
 end
+end
+function [c, v] = generate_transforms(c, v)
+
+% create visual co-ordinates for the entire cortical meshgrid
+c.v2c.z = v2c(c, c.X+sqrt(-1)*c.Y); 
+c.v2c.ANG = angle(c.v2c.z ) * 180/pi;
+c.v2c.ECC = abs(c.v2c.z);
+c.v2c.X = real(c.v2c.z );
+c.v2c.Y = imag(c.v2c.z);
+c.cropPix = ~(c.v2c.ANG<max(v.angList) & c.v2c.ANG>min(v.angList) & ...
+    c.v2c.ECC<=max(v.eccList));
+
+% create a mesh
+v.zAng = linspace(0,max(v.eccList),v.n)'*exp(sqrt(-1)*v.angList*pi/180);
+c.v2c.gridAngZ = c2v(c, v.zAng);
+v.zEcc = [v.eccList'*exp(sqrt(-1)*linspace(-90,90,v.n)*pi/180)]';
+c.v2c.gridEccZ = c2v(c, v.zEcc);
+
+% tranform electrodes
+if isfield(v.e, 'ecc')
+    z = v.e.ecc.*exp(sqrt(-1)*v.e.ang*pi/180);
+    c.e.z = c2v(c,z); 
+    c.e.x = real(c.e.z);
+    c.e.y = imag(c.e.z); % turn into mm rea
 end
 
-% transformation functions
-function c = gridv2c(c,v)
-c.Ang = v2c(c, v.zAng);
-c.Ecc = v2c(c, v.zRad);
-c.cropPix = ~(c.c2v.ECC<=max(v.AngList));
-% c.c2v.ANG<max(c.Ang(:)) & c.c2v.ANG>min(c.Ang(:)) &
 end
-function cpos = vpos2cpos(vpos, c)
-% converts positions in visual coordinates into cortical coordinates
-tmp =vpos(1).*exp(sqrt(-1)*vpos(2)*pi/180); % turn them into complex numbers, in degrees
-tmp2=v2c(c, tmp); % turn into mm, imaginary
-cpos = [real(tmp2), imag(tmp2)]; % turn into mm real
+function c2v_out = c2v(c, z)
+% takes in imaginary numbers, and finds out where cortical values are in visual space (map)
+c2v_out = c.k*log(z + c.a);
 end
-function v = v2c(c, z)
-v = c.k*log(z + c.a);
+function v2c_out = v2c(c, z)
+% takes in imaginary numbers, places visual values into the cortical grid (mapinv)
+v2c_out = exp(z/c.k)-c.a;
 end
-function c = c2v(c)
-tmp = c.X+sqrt(-1)*c.Y;
-%v = map(z,p)
-z = exp(tmp/c.k)-c.a;
-c.c2v.X = real(z);
-c.c2v.Y = imag(z);
-c.c2v.ECC = abs(tmp);
-c.c2v.ANG = angle(tmp) * 180/pi;
-end
-
 % time functions
 function tp = define_temporalparameters()
-tp.dt = 1/1000; % time sampling in ms
-tp.tau1 =200/1000; %Tehovnik et al 2004
-tp.tau2_ca = 45.25/1000;  %38-57, from retina
-tp.tau3 =  26.25/1000; % 24-33 from retina
+tp.dt = .01 * 10^-3; % time sampling in ms
+tp.tau1 = .2 * 10^-3; %Tehovnik et al 2004
+tp.tau2_ca = 45.250* 10^-3;  %38-57, from retina
+tp.tau3 =  26.250* 10^-3; % 24-33 from retina
 tp.e = 8.73; % from retina
 
 % leak out of charge accumulation
@@ -226,36 +232,30 @@ function pt = generate_pt(trl, tp)
 if isnan(trl.freq) % if not using a temporal model at all
     pt = 1;
 else
-    p = cat(1, zeros(round(trl.lag./tp.dt), 1), ...
-        trl.order * ones(round(trl.pw./tp.dt), 1), ...
-        zeros(round(trl.ip./tp.dt), 1), ...
-        -1 * trl.order * ones(round(trl.pw./tp.dt), 1));
-    
-    if trl.freq == -1 % single pulse
-        tmp = zeros(trl.dur./tp.dt, 1);
-        tmp(1:length(p)) = p;
-        pt = tmp;
-    else % not a single pulse
-        tmp = zeros(round((1000/trl.freq)./tp.dt), 1);
-        tmp(1:length(p)) = p;
-        pt = repmat(tmp, floor(length(trl.t)./length(tmp)), 1);
-    end
+t = 0:tp.dt:trl.dur-tp.dt;    
+on =  mod(t,1/trl.freq) < trl.pw;
+delay =  trl.pw+trl.ip;
+lag = trl.lag/tp.dt;
+off = mod(t-delay,1/trl.freq) < trl.pw;
+tmp  = trl.amp.*(on-off);
+pt= zeros(1, lag+length(tmp));
+pt(lag+1:lag+length(tmp))=tmp;
+pt=pt(1:length(tmp));
 end
 end
 function trl = define_trials(tp)
 trl.name = 'generic';
-trl.dur = 150; % duration in ms
+trl.dur = 1000*10^-3; % duration in ms
 trl.t = 0:tp.dt:trl.dur-tp.dt;
-trl.ip = 0; % interphase delay
-trl.lag = 50/1000; % delay before the pulse train begins in ms
-trl.pw = 200/1000; % pulse width in ms
+trl.ip = 1; % interphase delay
+trl.lag = 1*10^-3; % delay before the pulse train begins in ms
+trl.pw = 1/1000; % pulse width in ms
 trl.order = 1; % 1 = cathodic first, -1  = anodic first
 trl.freq = 60; % -1 for a single pulse, NaN if not using a temporal model
 trl.amp = 50; % current amplitude in microAmps
 trl.pt = generate_pt(trl, tp);
 end
-function  out = p2p_finite_element(tp, trl )
-% [ out ] = p2p_finite_element(tp, trl)
+function  tp = p2p_finite_element(tp, trl )
 % Implements accumulation of current over time using a very simple finite element method
 % written GMB 11/10/2017
 % adapted for cortex IF 3/2/2018
@@ -281,9 +281,8 @@ for i=1:length(trl.pt)-1
     tmp.R4(i) = tmp.R4a(:,4);
 end
 
-out=tmp.R4;
+tp.resp=tmp.R4;
 end
-
 % plotting functions
 function plotcortgrid(img, c, titlestr, cmap,figNum, spstr)
 
@@ -293,22 +292,23 @@ if isfield(c,'cropPix')
     cmap = [0,0,0;cmap];
 end
 
-fH=figure(figNum);set(fH, 'Name', titlestr);
-eval(spstr); colormap(cmap);
+fH=figure(figNum);
+eval(spstr); colormap(cmap); title(titlestr)
 image(c.x, c.y, flipud(img)); hold on
 xlabel('mm'); ylabel('mm')
 set(gca,'YDir','normal');
-plot(c.wAng, '-', 'Color', c.gridColor);
-plot(c.wEcc', '-', 'Color', c.gridColor);
+plot(c.v2c.gridAngZ, '-', 'Color', c.gridColor);
+plot(c.v2c.gridEccZ, '-', 'Color', c.gridColor);
 
 axis equal;  axis tight
 set(gca,'XLim',[min(c.x(:)),max(c.x(:))]);
 set(gca,'YLim',[min(c.y(:)),max(c.y(:))]);
+drawnow;
 end
 function plotretgrid(img, c,v, titlestr, cmap, figNum, spstr)
 
-fH=figure(figNum);set(fH, 'Name', titlestr);
-eval(spstr);
+fH=figure(figNum);
+eval(spstr); title(titlestr)
 if strcmp(c.e.hemi, 'lh')
     image(v.x, v.y, img); hold on
 else
@@ -319,14 +319,15 @@ colormap(cmap);
 set(gca,'YDir','normal');
 
 plot(v.zAng,'-','Color',c.gridColor);
-plot(v.zRad','-','Color',c.gridColor);
+plot(v.zEcc,'-','Color',c.gridColor);
 plot(-v.zAng,'-','Color',c.gridColor);
-plot(-v.zRad','-','Color',c.gridColor);
+plot(-v.zEcc,'-','Color',c.gridColor);
 
 axis equal;  axis tight
 xlabel('degrees'); ylabel('degrees')
 set(gca,'XLim',[min(v.x(:)),max(v.x(:))]);
 set(gca,'YLim',[min(v.y(:)),max(v.y(:))]);
+drawnow;
 end
 function junk()
 %% CODE TO INTEGRATE
