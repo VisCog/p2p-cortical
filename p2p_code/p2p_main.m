@@ -1,8 +1,9 @@
 function [c,trl] = p2p_main()
-p2p_Bosking();
-%p2p_Tehovnik();
+%p2p_Bosking();
+p2p_Tehovnik();
 %p2p_generic();
 end
+
 function p2p_Tehovnik()
 c.a = 0.3; c.cortexSize = [20,45]; c.pixpermm = 10; c.efthr = .15; c = define_cortex(c);
 v.e.ang = 0; v.e.ecc = 3.7;v.retinaSize = [5,15];v.pixperdeg = 40; v = define_visualmap(v);
@@ -46,14 +47,15 @@ plotretgrid(v.e.rfmap_noRF*64, c, v, 'rfmap no RF', gray(64), 10, 'subplot(1,3,2
 trl.expname = 'Bosking';
 trl.amp = 40;
 
-for a=1:8
+for a=1:8  
     trl.amp = 50*a;
     trl = define_trial(tp,trl);
     trl = p2p_finite_element(tp, trl);
     trl = generate_phosphene(v, tp, trl);
-    tmp = (trl.maxphos(:, :, 1));
-    resp(a) = max(tmp(:));
-    plotretgrid(trl.maxphos(:, :, 1)*145, c, v,'phosphene', gray(64), 10, ['subplot(3,3,', num2str(a), ')']);
+    img = trl.maxphos(:, :, 1);
+    resp(a) = max(img(:));
+    plotretgrid((img>v.drawthr)*145, c, v,'phosphene', gray(64), 10, ['subplot(3,3,', num2str(a), ')']);
+    ellipse_params{a} = trl.ellipse_params;
 end
 end
 
@@ -107,6 +109,7 @@ v.angList = -90:20:90;
 v.eccList = [1 2 3 5 8 13 21 34];
 v.n = 201;
 end
+
 function c = define_cortex(c)
 % cortical magnification, typical log z transformation parameters (Based on Duncan and Boynton)
 c.k = 20; %scale
@@ -137,6 +140,7 @@ if ~isfield(c, 'efthr')
     c.efthr = .5; % choose the strength of the electric field to analyse  threshold
 end
 end
+
 function c = define_electrodes(c, v)
 % either needs an electrode position in cortical co-ordinates
 % or needs to take in the position of the electrode in visual co-ordinates
@@ -148,6 +152,7 @@ c.e.hemi = 'rh';
 c.e.afac=1.69; % parameters for current spread
 c.e.ct=14;
 end
+
 function tp = define_temporalparameters()
 tp.dt = .01 * 10^-3; % time sampling in ms
 tp.tau1 = .2 * 10^-3; %Tehovnik et al 2004
@@ -164,6 +169,7 @@ tp.slope=.3; % larger number = shallower slope
 tp.asymptote=14;
 tp.shift=47; % shifts curve along x-axis
 end
+
 function trl = define_trial(tp,trl)
 if ~isfield(trl,'expname'); trl.expname = 'generic'; end
 if strcmp(trl.expname, 'Tehovnik')
@@ -190,6 +196,7 @@ if ~isfield(trl, 'freq');   trl.freq = 60;          end %NaN if not using a temp
 if ~isfield(trl, 'amp');    trl.amp = 100;          end% current amplitude in microAmps
 trl.pt = generate_pt(trl, tp);
 end
+
 % generate functions
 function c = generate_corticalmap(c, v)
 % define cortex meshgrid
@@ -200,10 +207,12 @@ c.y = linspace(.5/c.pixpermm,c.cortexSize(1)-.5/c.pixpermm,c.cortexSize(1)*c.pix
 % Make the orientation and OD maps
 c = generate_ORmapODmap(c);
 end
+
 function c = find_rf_in_c(c)
 % finds the angle, eccentricity and size of rfs for every point in cortex
 c.RFmap = max(c.slope .* abs(c.v2c.ECC), c.min)+c.intercept;
 end
+
 function [c] = generate_ORmapODmap(c)
 % [pinwheel,OD] = makePinwheelODMaps(x,y,sig)
 sz = size(c.X);
@@ -229,6 +238,7 @@ WX = gradient(W);
 Gx = angle(WX);
 c.ODmap = normcdf(Gx*c.sig);
 end
+
 function [c] = generate_ef(c)
 % generates an electric field for each electrode, currently assumes they
 % are on the surface
@@ -251,6 +261,7 @@ c.e.ef = pt_ef;
 % c.e.ef = reshape(ef,size(c.X));
 
 end
+
 function [c] = generate_corticalresponse(c, v)
 % generates the sum of weighted receptive fields activated by an electrode
 % normalized so the max is 1
@@ -261,23 +272,28 @@ for pixNum = 1:length(c.X(:))
     if mod(pixNum, 1000)==0
         disp([num2str(round((100*pixNum)/length(c.X(:)))),  '% complete' ]);
     end
+    
+    
     x0 = c.v2c.X(pixNum); % x center
     y0 = c.v2c.Y(pixNum); % y center
     theta = pi-c.ORmap(pixNum);  %orientation
     sigma_x = c.RFmap(pixNum) * c.ar; % major axis sd
     sigma_y = c.RFmap(pixNum); % minor axis sd
+    G = Gauss_2D(v,x0,y0,theta,sigma_x,sigma_y);
     
-    % things you need to go from sigmas and theta to G
-    aa = cos(theta)^2/(2*sigma_x^2) + sin(theta)^2/(2*sigma_y^2);
-    bb = -sin(2*theta)/(4*sigma_x^2) + sin(2*theta)/(4*sigma_y^2);
-    cc = sin(theta)^2/(2*sigma_x^2) + cos(theta)^2/(2*sigma_y^2);
-    
-    % oriented 2D Gaussian, representing the Gaussian for that pixel
-    G = exp( - (aa*(v.X-x0).^2 + 2*bb*(v.X-x0).*(v.Y-y0) + cc*(v.Y-y0).^2));
     c.target.R(pixNum) = sum(G(:).*v.target.img(:));
 end
 c.target.R = reshape(c.target.R, size(c.X));
 end
+
+function G = Gauss_2D(v,x0,y0,theta,sigma_x,sigma_y)
+% Generates oriented 2D Gaussian on meshgrid v.X,v.Y
+aa = cos(theta)^2/(2*sigma_x^2) + sin(theta)^2/(2*sigma_y^2);
+bb = -sin(2*theta)/(4*sigma_x^2) + sin(2*theta)/(4*sigma_y^2);
+cc = sin(theta)^2/(2*sigma_x^2) + cos(theta)^2/(2*sigma_y^2);
+G = exp( - (aa*(v.X-x0).^2 + 2*bb*(v.X-x0).*(v.Y-y0) + cc*(v.Y-y0).^2));
+end
+
 function [v] = generate_rfmap(c, v)
 % generates the sum of weighted receptive fields activated by an electrode
 % normalized so the max is 1
@@ -313,6 +329,7 @@ end
 v.e.rfmap_noRF = v.e.rfmap_noRF./max(v.e.rfmap_noRF(:));
 v.e.rfmap = v.e.rfmap./max(v.e.rfmap(:));
 end
+
 function trl = generate_phosphene(v, tp, trl)
 % calculate the neural response over time for each trial
 if ~isnan(trl.freq)
@@ -322,7 +339,46 @@ else
     trl.maxphos = v.e.rfmap; % the scaling due to current integration
 end
 trl.areaphos = (1/v.pixperdeg.^2) * sum(trl.maxphos(:) > v.drawthr)/2; % mean of left and right eyes
+
+for i=1:2
+    trl.ellipse_params(i) = fit_ellipse_to_phosphene(trl.maxphos(:,:,i)>v.drawthr,v);
 end
+
+
+end
+
+function p = fit_ellipse_to_phosphene(img,v)
+
+% fit ellipse to binary image trl.maxphos>v.drawthr using image moments:
+% https://en.wikipedia.org/wiki/Image_moment (Thanks Dr. Beyeler!)
+
+M00 = sum(sum(img));
+M10 = sum(sum(v.X.*img));
+M01 = sum(sum(v.Y.*img));
+M11 = sum(sum(v.X.*v.Y.*img));
+M20 = sum(sum(v.X.^2.*img));
+M02 = sum(sum(v.Y.^2.*img));
+
+p.x0 = M10/M00;
+p.y0 = M01/M00;
+
+mu20 = M20/M00 - p.x0^2;
+mu02 = M02/M00 - p.y0^2;
+mu11 = M11/M00 - p.x0*p.y0;
+
+a = (mu20+mu02)/2;
+b = .5*sqrt(4*mu11^2+(mu20-mu02)^2);
+
+lambda_1 = a+b;
+lambda_2 = a-b;
+
+p.theta = -.5*atan2(2*mu11,mu20-mu02);
+p.sigma_x = sqrt(2*lambda_1);
+p.sigma_y = sqrt(2*lambda_2);
+
+
+end    
+
 function  trl = p2p_finite_element(tp, trl )
 % Implements accumulation of current over time using a very simple finite element method
 % written GMB 11/10/2017
@@ -351,6 +407,7 @@ for i=1:length(trl.pt)-1
 end
 trl.resp=tmp.R4;
 end
+
 function pt = generate_pt(trl, tp)
 if isnan(trl.freq) % if not using a temporal model at all
     pt = 1;
@@ -366,6 +423,7 @@ else
     pt=pt(1:length(tmp));
 end
 end
+
 function v = generate_visualtarget(v)
 [x, y] = pol2cart(v.e.ang, v.e.ecc-v.target.offset)
 v.target.img = sqrt(((v.X-x).^2)+((v.Y-y).^2))<v.target.rad;
@@ -398,10 +456,12 @@ if isfield(v.e, 'ecc')
 end
 
 end
+
 function c2v_out = c2v(c, z)
 % takes in imaginary numbers, and finds out where cortical values are in visual space (map)
 c2v_out = c.k*log(z + c.a);
 end
+
 function v2c_out = v2c(c, z)
 % takes in imaginary numbers, places visual values into the cortical grid (mapinv)
 v2c_out = exp(z/c.k)-c.a;
@@ -429,6 +489,7 @@ set(gca,'XLim',[min(c.x(:)),max(c.x(:))]);
 set(gca,'YLim',[min(c.y(:)),max(c.y(:))]);
 drawnow;
 end
+
 function plotretgrid(img, c,v, titlestr, cmap, figNum, spstr)
 
 fH=figure(figNum);
@@ -453,6 +514,7 @@ set(gca,'XLim',[min(v.x(:)),max(v.x(:))]);
 set(gca,'YLim',[min(v.y(:)),max(v.y(:))]);
 drawnow;
 end
+
 function junk()
 %% CODE TO INTEGRATE
 %         idx=find(trls(t).pt>0);
