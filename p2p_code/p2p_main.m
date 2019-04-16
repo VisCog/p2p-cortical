@@ -344,7 +344,6 @@ for i=1:2
     trl.ellipse_params(i) = fit_ellipse_to_phosphene(trl.maxphos(:,:,i)>v.drawthr,v);
 end
 
-
 end
 
 function p = fit_ellipse_to_phosphene(img,v)
