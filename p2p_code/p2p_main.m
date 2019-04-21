@@ -1,32 +1,33 @@
-function [c,trl] = p2p_main()
-
-rng(1); 
+% function [c,trl] = p2p_main()
+ 
+rng(1);
 p2p_Winawer();
-return
+
+
 tp.scFac = 1/10;
 %p2p_Bosking();return
 tp = define_temporalparameters(tp);
 ampList = [ 4000];
 for tt=1:length(ampList)
-    tmp.amp = ampList(tt); 
-    tmp.expname = 'Bosking'; 
+    tmp.amp = ampList(tt);
+    tmp.expname = 'Bosking';
     tmp = define_trial(tp,tmp);
     tmp = p2p_finite_element(tp, tmp);
     maxamp(tt) = max(tmp.resp);
 end
-    figure(1); plot(tmp.resp)
+figure(1); plot(tmp.resp)
 figure(2); plot(ampList, maxamp)
 return
 %p2p_Winawer();
 
 %p2p_Tehovnik();
 %p2p_generic();
-end
+
 
 function p2p_Bosking()
 colorList =  [ 0.5 0 0 ;0.5 1 0.5; 1  0.8125 0;0 0.8750  1; 0  0 1.0000];
-c.efthr = 0.05; 
-%v = Bosking_getData(8); 
+c.efthr = 0.05;
+%v = Bosking_getData(8);
 v.e(1).ang = 0; v.e(2).ang = 0; v.e(3).ang = 0;
 v.e(1).ecc = 1; v.e(2).ecc = 10; v.e(3).ecc = 20;
 v.drawthr = 0.15;
@@ -37,7 +38,7 @@ c = define_cortex(c);
 v = define_visualmap(v);
 [c, v] = generate_corticalmap(c, v);
 c = define_electrodes(c, v);
-tp.scFac = 1/10; 
+tp.scFac = 1/10;
 tp = define_temporalparameters(tp);
 c = generate_ef(c);
 
@@ -72,7 +73,7 @@ for ii=1:length(v.e)
     drawnow
 end
 figure(12);
-for ee=1:length(v.e)  
+for ee=1:length(v.e)
     plot(v.e(ee).ecc, sim_sizes(ee,1), '.', 'MarkerSize', 30); hold on; % Figure 4, Bosking 2017
 end
     function v = Bosking_getData(varargin)
@@ -171,8 +172,9 @@ for ii=1:5
     figure_xyplot(trl, 'draw_area','sim_area',[], 11, ['subplot(2,2,1); title(''Draw vs.Sim - area'')'], opts);
     figure_xyplot(trl, 'draw_radius','sim_radius',[], 11, ['subplot(2,2,2); title(''Draw vs.Sim -Radius'')'], opts);
     figure_xyplot(trl, 'draw_brightness','sim_brightness',[], 11, ['subplot(2,2,3); title(''Draw vs.Sim - Brightness'')', 0], opts);
-
+    
 end
+
     function d = Winawer_getData(sites)
         
         pth = fullfile(ebsRootPath, 'data', 'ebs');
@@ -292,10 +294,10 @@ end
 end
 function tp = define_temporalparameters(varargin)
 if nargin>0
-    tp = varargin{1}; 
+    tp = varargin{1};
 end
 tp.dt = .01 * 10^-3; % time sampling in ms
-if ~isfield(tp, 'scFac'); tp.scFac = 1; end 
+if ~isfield(tp, 'scFac'); tp.scFac = 1; end
 tp.tau1 = .2 * 10^-3; %Tehovnik et al 2004
 tp.tau2_ca = 45.250* 10^-3;  %38-57, from retina
 tp.tau3 =  26.250* 10^-3; % 24-33 from retina
@@ -410,12 +412,12 @@ if nargin <2
 else
     idx = varargin{1};
 end
-if ~isfield(c, 'emodel') 
-    c.emodel = 'Tehovnik'; 
+if ~isfield(c, 'emodel')
+    c.emodel = 'Tehovnik';
     I0 = 1;
 end
 for ii=1:length(idx)
-    R=sqrt((c.X-c.e(idx(ii)).x).^2+(c.Y-c.e(idx(ii)).y).^2);  
+    R=sqrt((c.X-c.e(idx(ii)).x).^2+(c.Y-c.e(idx(ii)).y).^2);
     Rd = R-c.e(idx(ii)).radius;
     pt_ef = ones(size(c.X));
     if strcmp(c.emodel, 'Tehovnik')
