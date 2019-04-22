@@ -1,8 +1,17 @@
 % Winawer_ARVO_19.m
 % Generates figures for 2019 ARVO talk
 
+figure(10)
+clf
+subplot(1,2,1)
+hold on
+subplot(1,2,2)
+hold on
+clear trl
+
 d = Winawer_getData(1:5);%% load the data
 colorList =  [ 0.5 0 0 ;0.5 1 0.5; 1  0.8125 0;0 0.8750  1; 0  0 1.0000];
+
 for ii=1:5
     opts.color = colorList(ii,:);
     for tt = 1:length(d(ii).duration.val)
@@ -13,10 +22,11 @@ for ii=1:5
         site(ii).trl(tt).draw.area = d(ii).area.val(tt);
         site(ii).trl(tt).draw.radius = d(ii).polycenterr.val(tt);
         site(ii).trl(tt).draw.brightness = d(ii).brightness.val(tt);
+        site(ii).trl(tt).totalCharge = d(ii).totalCharge.val(tt);
     end
     
     c.efthr = 0.01; v.drawthr = 0.05;
-    %% most eccentric electrode
+    % set up v and c for each electrode
     switch ii
         case 1
             v.e(1).ang = 19.8;      v.e(1).ecc = 26.6;  c.e(1).radius = 1.150 ; % in cm
@@ -41,30 +51,29 @@ for ii=1:5
     
     c = p2p_c.define_electrodes(c, v, ii);
     c = p2p_c.generate_ef(c, ii);
-    p2p_c.plotcortgrid(c.e(ii).ef * 100, c, gray(64), 3,['subplot(2,3,', num2str(ii), '); title(''electric field'')']);
     % this is the slow part...
     v = p2p_c.generate_rfmap(c, v, ii);
     p2p_c.plotretgrid(v.e(ii).rfmap(:, :, 1)*255, v, gray(64), 4, ['subplot(2,3,', num2str(ii),  '); title(''rf map'')']);
     p2p_c.plotretgrid(v.e(ii).rfmap_noRF(:, :, 1)*64, v,gray(64), 5, ['subplot(2,3,', num2str(ii), '); title(''rf map no rf'')']);
     
-    % get a phosphene for an amplitude of 50Hz, pw 1000 and dur = 1 and amp
-    % = 5000
+    % Winawer Figure 2: Draw a phosphene for an amplitude of 50Hz, pw 1000 and dur = 1 and amp
+    % = 5000 for each of the 5 elecrodes
     
     
     tmp = site(ii).trl(1);
     tmp.freq = 50;
-     tmp.pw = 2*10^(-4);
-     tmp.dur= 1;
+    tmp.pw = 2*10^(-4);
+    tmp.dur= 1;
     tmp.e = ii; % which electrode
     tmp = p2p_c.define_trial(tp,tmp);
     tmp = p2p_c.generate_phosphene(v, tp, tmp);
+    
     figure(ii)
     clf
     hold on
     p2p_c.plotretgrid(tmp.maxphos(:, :, 1)*1000, v, gray(256), ii,[ 'subplot(1,2,1); title(''phosphene'')';]);
     p2p_c.draw_ellipse(tmp, ii,['subplot(1,2,1)'], 1)
-    
-    
+    p2p_c.plotcortgrid(c.e(ii).ef * 100, c, gray(64), ii,['subplot(1,2,2); title(''electric field'')']);
     
     
     for tt = 1:length(site(ii).trl)
@@ -81,18 +90,61 @@ for ii=1:5
         tmp.sim_diameter = 2 * tmp.sim_radius;
         
         tmp.draw_brightness = [site(ii).trl(tt).draw.brightness];
+        tmp.WCperTrial = site(ii).trl(tt).totalCharge;
         tmp.sim_brightness = max(tmp.maxphos(:));% max of both eyes
         trl(tt) = tmp;
     end
-    p2p_c.figure_xyplot(trl, 'CperTrial', 'draw_area','sim_area',10, ['subplot(2,2,1); title(''CperT vs. Area'')'], opts);
-    p2p_c.figure_xyplot(trl, 'CperTrial', 'draw_radius','sim_radius',10, ['subplot(2,2,2); title(''CperT vs. Radius'')'], opts);
-    p2p_c.figure_xyplot(trl, 'CperTrial', 'draw_brightness','sim_brightness',10, ['subplot(2,2,3); title(''CperT vs. Brightness'')', 0], opts);
-    p2p_c.figure_xyplot(trl, 'CperPulse', 'draw_brightness', 'sim_brightness', 10, ['subplot(2,2,4); title(''CperP vs. Brightness'')'], opts);
     
-    p2p_c.figure_xyplot(trl, 'draw_area','sim_area',[], 11, ['subplot(2,2,1); title(''Draw vs.Sim - area'')'], opts);
-    p2p_c.figure_xyplot(trl, 'draw_radius','sim_radius',[], 11, ['subplot(2,2,2); title(''Draw vs.Sim -Radius'')'], opts);
-    p2p_c.figure_xyplot(trl, 'draw_brightness','sim_brightness',[], 11, ['subplot(2,2,3); title(''Draw vs.Sim - Brightness'')', 0], opts);
+    % plot phosphene area as a function of 'Charge deposited per trial'
+    %     p2p_c.figure_xyplot(trl, 'WCperTrial','draw_area',[],10, 'subplot(1,2,1)', opts);
+    %     p2p_c.figure_xyplot(trl, 'WCperTrial','sim_area',[], 10, 'subplot(1,2,2)', opts);
+    drawnow
     
+    figure(10)
+    subplot(1,2,1)
+    x = d(ii).totalCharge.val;
+    y = d(ii).poly_area.val;
+    
+    plot(log(x),log(y),'ko','MarkerFaceColor',colorList(ii,:),'MarkerSize',10);
+    set(gca,'XTick',log([1,10,100,1000]));
+    set(gca,'XLim',[log(1),log(1000)]);
+    set(gca,'YTick',log([.01,.1,1,10,100,1000]));
+    set(gca,'YLim',[log(.01),log(1000)]);
+    
+    
+    logx2raw(exp(1),0);
+    logy2raw(exp(1),0);
+    xlabel('Charge Deposited per Trial (\muC)');
+    ylabel('Phosphene area (deg^2)');
+    
+    x = d(1).totalCharge.val;
+    x = [trl(:).WCperTrial];
+    y = [trl(:).sim_area];
+    
+    subplot(1,2,2)
+    plot(log(x),log(y),'ko','MarkerFaceColor',colorList(ii,:),'MarkerSize',10);
+    set(gca,'XTick',log([1,10,100,1000]));
+    set(gca,'XLim',[log(1),log(1000)]);
+    set(gca,'YTick',log([.01,.1,1,10,100,1000]));
+    set(gca,'YLim',[log(.01),log(1000)]);
+    
+    logx2raw(exp(1),0);
+    logy2raw(exp(1),1);
+    xlabel('Charge Deposited per Trial (\muC)');
+    ylabel('Phosphene area (deg^2)');
+    
+    
+    
+    %    p2p_c.figure_xyplot(trl, 'CperTrial', 'draw_area','sim_area',10, ['subplot(2,2,1); title(''CperT vs. Area'')'], opts);
+    %     p2p_c.figure_xyplot(trl, 'CperTrial', 'draw_radius','sim_radius',10, ['subplot(2,2,2); title(''CperT vs. Radius'')'], opts);
+    %     p2p_c.figure_xyplot(trl, 'CperTrial', 'draw_brightness','sim_brightness',10, ['subplot(2,2,3); title(''CperT vs. Brightness'')', 0], opts);
+    %     p2p_c.figure_xyplot(trl, 'CperPulse', 'draw_brightness', 'sim_brightness', 10, ['subplot(2,2,4); title(''CperP vs. Brightness'')'], opts);
+    %
+    %     p2p_c.figure_xyplot(trl, 'draw_area','sim_area',[], 11, ['subplot(2,2,1); title(''Draw vs.Sim - area'')'], opts);
+    %     p2p_c.figure_xyplot(trl, 'draw_radius','sim_radius',[], 11, ['subplot(2,2,2); title(''Draw vs.Sim -Radius'')'], opts);
+    %     p2p_c.figure_xyplot(trl, 'draw_brightness','sim_brightness',[], 11, ['subplot(2,2,3); title(''Draw vs.Sim - Brightness'')', 0], opts);
+    %
+    drawnow
 end
 
 function d = Winawer_getData(sites)

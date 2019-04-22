@@ -38,6 +38,7 @@ classdef p2p_c
                     tmp.amp = ampList(tt); tmp.e = ii;
                     tmp = define_trial(tp,tmp);
                     tmp = p2p_finite_element(tp, tmp);
+                    
                     tmp = generate_phosphene(v, tp, tmp);
                     tmp.sim_radius= mean([tmp.ellipse(1).sigma_x tmp.ellipse(1).sigma_y]);
                     tmp.sim_diameter = 2 * tmp.sim_radius;
@@ -471,7 +472,7 @@ classdef p2p_c
             tmp.R3norm = 0;
             tmp.R4a =  zeros(1,4);
             %tmp.R4ax =  zeros(1,4);
-            
+
             for i=1:length(trl.pt)-1
                 % R1
                 tmp.R1= tmp.R1 + tp.dt * ((tp.scFac * trl.pt(i))-tmp.R1)/tp.tau1;
@@ -724,7 +725,7 @@ classdef p2p_c
                     logFlag_y = 0;
                     ylabel('Phosphene brightness')
                 case 'draw_area'
-                    y1 = log(y1); y2 = log(y2);
+                    y1 = log(y1);% y2 = log(y2);
                     logFlag_y = 1;
                     ylabel('Phosphene area (deg^2)')
                 case 'draw_radius'
