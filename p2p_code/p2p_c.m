@@ -10,85 +10,7 @@ classdef p2p_c
         %p2p_generic();
         
         
-        function p2p_Bosking()
-            colorList =  [ 0.5 0 0 ;0.5 1 0.5; 1  0.8125 0;0 0.8750  1; 0  0 1.0000];
-            c.efthr = 0.05;
-            %v = Bosking_getData(8);
-            v.e(1).ang = 0; v.e(2).ang = 0; v.e(3).ang = 0;
-            v.e(1).ecc = 1; v.e(2).ecc = 10; v.e(3).ecc = 20;
-            v.drawthr = 0.15;
-            for ii=1:length(v.e); c.e(ii).radius = 0.25; end
-            c.cortexSize = [80,100]; c.pixpermm = 6; c.efthr = .1;
-            v.retinaSize = [100,100];v.pixperdeg = 10;
-            c = define_cortex(c);
-            v = define_visualmap(v);
-            [c, v] = generate_corticalmap(c, v);
-            c = define_electrodes(c, v);
-            tp.scFac = 1/10;
-            tp = define_temporalparameters(tp);
-            c = generate_ef(c);
-            
-            for ii=1:length(v.e)
-                plotcortgrid(c.e(ii).ef(:, :,1) * 64, c, gray(64), 1,['subplot(2,4,', num2str(ii), '); set(gcf, ''Name'', ''electric field'')']);
-                
-                v = generate_rfmap(c, v, ii);
-                tmp.expname = 'Bosking';
-                ampList = [500 1000 2000 ];
-                for tt=1:length(ampList)
-                    tmp.amp = ampList(tt); tmp.e = ii;
-                    tmp = define_trial(tp,tmp);
-                    tmp = p2p_finite_element(tp, tmp);
-                    
-                    tmp = generate_phosphene(v, tp, tmp);
-                    tmp.sim_radius= mean([tmp.ellipse(1).sigma_x tmp.ellipse(1).sigma_y]);
-                    tmp.sim_diameter = 2 * tmp.sim_radius;
-                    tmp.sim_brightness = max(tmp.maxphos(:));
-                    tmp.maxresp = max(tmp.resp);
-                    
-                    if tmp.amp==1000
-                        plotretgrid(v.e(ii).rfmap(:, :, 1)*255, v, gray(64), 2, ['subplot(2,4,', num2str(ii),  '); title(''rf map'')']);
-                        plotretgrid(tmp.maxphos(:, :, 1)*213, v, gray(64), 3, ['subplot(2,4,', num2str(ii),  '); title(''phosphene'')']);
-                        draw_ellipse(tmp, 3,['subplot(2,4,', num2str(ii), ')'], 1)
-                    end
-                    
-                    sim_sizes(ii,tt) =  tmp.sim_diameter;
-                    
-                    trl(tt) = tmp;
-                end
-                opts.LineStyle = '-';
-                figure_xyplot(trl, 'amp','sim_diameter',[], 11, ['subplot(1,1,1); title(''Current vs. Diameter'')'], opts); % Figure 3, Bosking 2017
-                drawnow
-            end
-            figure(12);
-            for ee=1:length(v.e)
-                plot(v.e(ee).ecc, sim_sizes(ee,1), '.', 'MarkerSize', 30); hold on; % Figure 4, Bosking 2017
-            end
-            function v = Bosking_getData(varargin)
-                if nargin <1; n = 40;
-                else n = varargin{1};
-                end
-                
-                ecc = [2.186915888 2.973407843 2.373639079 2.374361692 3.485162347 3.161720782 3.903266211 2.654157433 2.842470373 ...
-                    3.071683206 3.535889777 4.046488101 4.091868195 4.414587147 4.833847191 4.974323153 5.392137971 3.956016957 4.467482416 4.931110897 5.58045091 4.098371712 ...
-                    4.608536468 5.722661143 6.047836979 2.88467097 5.307303208 5.355140187 6.143366413 5.172897196 6.056074766 6.610897004 7.446093073 7.769534637 8.557905386 ...
-                    3.21230369 8.461219771 9.30089604 9.441372001 10.50852683 8.608921861 9.028326428 8.193852972 6.940697562 14.13532132 13.99513441 14.22694865 14.37537335];
-                ecc = repmat(ecc, 1, ceil(n/length(ecc)));
-                ecc= ecc(randperm(length(ecc)));
-                
-                ang = [-2.103467982 -1.914786272 -2.00638409 -1.910671717 -1.987623682 -1.600120824 -1.629608464 -1.536051334 -1.626277634 -1.623534598 -1.424713451 ...
-                    -1.423537864 -1.437399993 -1.452241779 -1.265911243 -1.282320478 -1.184061 -0.365460602 -0.195931163 -0.31682069 0.664892401 0.447114914 ...
-                    2.172582699 2.139960161 2.455605264 2.549358325 2.489207458 2.598977892 2.19330242 -0.76158443 -0.78054077 -0.921954087 -1.030548934 ...
-                    -1.001649087 -1.096185873 -0.902801816 -0.980145642 -0.963344545 -1.029569278 -1.139143781 -1.578029586 -1.094422493 -0.904173334];
-                ang = repmat(ang, 1, ceil(n/length(ang)));
-                ang = ang(randperm(length(ang)))*180/pi;
-                for e = 1:n
-                    v.e(e).ang = ang(e);
-                    v.e(e).ecc = ecc(e);
-                end
-            end
-        end
-    
-        
+     
         % definitions
         function v = define_visualmap(v)
             if ~isfield(v.e, 'ang')
@@ -98,7 +20,11 @@ classdef p2p_c
             if ~isfield(v, 'retinaSize')
                 v.retinaSize = [70,70]; %  [height, width diameter in degrees]
             end
-            v.retinaCenter = [0,0];
+            
+            if ~isfield(v,'retinaCenter')
+                v.retinaCenter = [0,0];
+            end
+            
             if ~isfield(v,'pixperdeg')
                 v.pixperdeg = 20;
             end
@@ -110,7 +36,7 @@ classdef p2p_c
             [v.X,v.Y] = meshgrid(v.x, v.y);
             
             %Make the grid in retinal coordinates
-            v.angList = -90:20:90;
+            v.angList = -90:45:90;
             v.eccList = [1 2 3 5 8 13 21 34];
             v.gridColor = [1 1 0];
             v.n = 201;
@@ -125,8 +51,8 @@ classdef p2p_c
             
             % current spread parameters
             % current spread parameters, based on Ahuja
-            c.afac=1.69; % parameters for current spread
-            c.ct=14;
+            %             c.afac=1.69; % parameters for current spread
+            %             c.ct=14;
             
             % receptive field parameters
             c.ar = .5;  % aspect ratio of V1 RFs
@@ -145,7 +71,7 @@ classdef p2p_c
             if ~isfield(c, 'cortexSize')
                 c.cortexSize = [80,100];  % %[height, width] Size of cortical maps (mm)
             end
-            if ~isfield(c, 'cortexSCenter')
+            if ~isfield(c, 'cortexCenter')
                 c.cortexCenter = [30,0]; % center of electrode array (mm on cortex)
             end
             if ~isfield(c, 'pixpermm')
@@ -320,7 +246,7 @@ classdef p2p_c
                 Rd = R-c.e(idx(ii)).radius;
                 pt_ef = ones(size(c.X));
                 if strcmp(c.emodel, 'Tehovnik')
-                    I0=1; k = .675; % in cm
+                    I0=1; k = 6.75; % in cm
                     pt_ef(R>c.e(idx(ii)).radius)=I0./(1+k*Rd(R>c.e(idx(ii)).radius).^2);
                 else
                     %    pt_ef(R>c.e(idx(ii)).radius)=2/pi*(asin(c.e(idx(ii)).radius./R(R>c.e(idx(ii)).radius)));
@@ -619,7 +545,7 @@ classdef p2p_c
             
             fH=figure(figNum);
             eval(spstr); colormap(cmap);
-            image(c.x, c.y, flipud(img)); hold on
+            image(c.x, c.y, img); hold on
             xlabel('mm'); ylabel('mm')
             set(gca,'YDir','normal');
             plot(c.v2c.gridAngZ, '-', 'Color', c.gridColor);
@@ -650,10 +576,16 @@ classdef p2p_c
         function draw_ellipse(trl, figNum, spstr, varargin)
             figure(figNum); hold on
             eval(spstr);
-            if nargin >2
+            if nargin >3
                 eye = varargin{1};
             else
                 eye = 1;
+            end
+            
+            if nargin>4
+                lineColor = varargin{2};
+            else
+                lineColor = 'g';
             end
             theta = linspace(-pi,pi,101);
             
@@ -662,7 +594,7 @@ classdef p2p_c
                     (trl.ellipse(eye(e)).sigma_y^2*cos(theta).^2 + trl.ellipse(eye(e)).sigma_x^2*sin(theta).^2));
                 x = trl.ellipse(eye(e)).x+r.*cos(theta-trl.ellipse(eye(e)).theta);
                 y = trl.ellipse(eye(e)).y+r.*sin(theta-trl.ellipse(eye(e)).theta);
-                plot(x,y,'g-','LineWidth',1);
+                plot(x,y,'-','LineWidth',1,'Color',lineColor);
             end
             
         end
