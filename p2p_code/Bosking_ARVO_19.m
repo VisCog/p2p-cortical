@@ -1,6 +1,5 @@
 % Bosking_ARVO_19.m
 
-
 ampList = [500,750,1000,1500,2000,3000,4000];
 
 rng(1)
@@ -43,7 +42,7 @@ for ii=1:length(v.e)
  %   p2p_c.plotcortgrid(c.e(ii).ef(:, :,1) * 64, c, gray(64), 1,['subplot(2,4,', num2str(ii), '); set(gcf, ''Name'', ''electric field'')']);
     
     v = p2p_c.generate_rfmap(c, v, ii);
-    disp(sprintf('Electrode %d of %d',ii,n));
+    disp(sprintf('Electrode %d of %d',ii,length(v.e)));
     tmp = [];
     tmp.expname = 'Bosking';
     for tt=1:length(ampList)
@@ -55,18 +54,11 @@ for ii=1:length(v.e)
         tmp.sim_diameter = 2 * tmp.sim_radius;
         tmp.sim_brightness = max(tmp.maxphos(:));
         tmp.maxresp = max(tmp.resp);
-        
-%         if tmp.amp==1000 
-%             p2p_c.plotretgrid(v.e(ii).rfmap(:, :, 1)*255, v, gray(64), 2, ['subplot(2,4,', num2str(ii),  '); title(''rf map'')']);
-%             p2p_c.plotretgrid(tmp.maxphos(:, :, 1)*213, v, gray(64), 3, ['subplot(2,4,', num2str(ii),  '); title(''phosphene'')']);
-%             p2p_c.draw_ellipse(tmp, 3,['subplot(2,4,', num2str(ii), ')'], 1)
-%         end
-        
+
         sim_sizes(ii,tt) =  tmp.sim_diameter;
         
         trl{ii,tt} = tmp;
     end
-%     opts.LineStyle = '-';    p2p_c.figure_xyplot(trl, 'amp','sim_diameter',[], 11, ['subplot(1,1,1); title(''Current vs. Diameter'')'], opts); % Figure 3, Bosking 2017
 
     drawnow
 end
@@ -91,6 +83,8 @@ set(gca,'XTick',[0:3]);
 set(gca,'YLIm',[0,1.1]);
 
 set(gca,'FontSize',24);
+
+
 %%
 % Plot phosphene size as a function of phosphene eccentricity (for
 % stimulation at 1000 microamps)
@@ -109,6 +103,30 @@ set(gca,'FontSize',24);
 
 
 
+%%
+% plot example pulse train and response
+dt = tmp.t(2)-tmp.t(1);
+figure(4)
+clf
+plot(dt:dt:(dt*length(tmp.pt)),tmp.pt,'k-');
+set(gca,'YTick',[]);
+widen
+heighten(2)
+xlabel('Time (s)');
+set(gca,'FontSize',16);
+ylabel('Amplitude');
+
+figure(5)
+clf
+plot(dt:dt:(dt*length(tmp.resp)),tmp.resp,'k-');
+set(gca,'YTick',[]);
+widen
+heighten
+xlabel('Time (s)');
+set(gca,'FontSize',16);
+ylabel('Response');
+
+%%
 
 function v = Bosking_getData(varargin)
 if nargin <1

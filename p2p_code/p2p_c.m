@@ -158,11 +158,17 @@ classdef p2p_c
                 trl.pw = .1/1000; % pulse width in ms
                 trl.order = 1; % 1 = cathodic first, -1  = anodic first
                 trl.freq = 200; % -1 for a single pulse, NaN if not using a temporal model
+            elseif strcmp(trl.expname,'Evans')
+                trl.order = -1;
+            if ~isfield(trl, 'pw');     trl.pw = .25/1000;     end
+            if ~isfield(trl, 'dur');    trl.dur = .5;   end% duration in ms
+            if ~isfield(trl, 'freq');   trl.freq = 50;          end %NaN if not using a temporal model
+                trl.t = 0:tp.dt:trl.dur-tp.dt;
             end
-            
+
             if ~isfield(trl, 'dur');    trl.dur = 1000*10^-3;   end% duration in ms
             trl.t = 0:tp.dt:trl.dur-tp.dt;
-            if ~isfield(trl, 'pw');     trl.pw = 1 * 10^-3;      end
+            if ~isfield(trl, 'pw');     trl.pw = .25 * 10^-3;      end
             if ~isfield(trl, 'ip');     trl.ip = 0;             end % interphase delay
             if ~isfield(trl, 'lag');    trl.lag = trl.pw;       end% delay before the pulse train begins in ms
             if ~isfield(trl, 'order');  trl.order = 1;          end% 1 = cathodic first, -1  = anodic first
@@ -354,7 +360,10 @@ classdef p2p_c
                 trl.ellipse(i).theta = p.theta;
             end
             
-            
+            % what rule to use to translate phosphene image to brightness?
+
+            beta = 6; % soft-max rule across pixels for both eyes
+            trl.sim_brightness = ((1/v.pixperdeg.^2) * sum(trl.maxphos(:).^beta)^(1/beta));
         end
         
         function p = fit_ellipse_to_phosphene(img,v)

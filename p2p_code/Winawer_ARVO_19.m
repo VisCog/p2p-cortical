@@ -1,9 +1,7 @@
 % Winawer_ARVO_19.m
 % Generates figures for 2019 ARVO talk
 
-
-
-c.efthr = 0.005; 
+c.efthr = 0.005;
 v.drawthr = 0.047;
 
 
@@ -80,7 +78,7 @@ sz = size(c.e(ii).ef,1);
 plot(c.X(1,:),c.e(ii).ef(round(sz/2),:),'LineWidth',2);
 xlabel('mm');
 hold on
-patch(c.cortexCenter(1)+c.e(ii).radius*[-1,1,1,-1],[1,1,1.1,1.1],'k');  
+patch(c.cortexCenter(1)+c.e(ii).radius*[-1,1,1,-1],[1,1,1.1,1.1],'k');
 set(gca,'YLim',[0,1.2]);
 ylabel('Potential (normalized units)');
 figure(2)
@@ -93,7 +91,7 @@ set(gca,'FontSize',12);
 
 for ii=1:5
     opts.color = colorList(ii,:);
-   
+    
     % set up v and c for each electrode
     switch ii
         case 1
@@ -101,12 +99,12 @@ for ii=1:5
             v.retinaSize = [30,30]; v.pixperdeg = 5;
             v.retinaCenter = [25,10];
         case 2
-            v.e(2).ang = -166.4;    v.e(2).ecc = 9;     c.e(2).radius = 0.510 ;          
+            v.e(2).ang = -166.4;    v.e(2).ecc = 9;     c.e(2).radius = 0.510 ;
             v.retinaSize = [20,20];v.pixperdeg = 8;
             v.retinaCenter = [-10,0];
         case 3
-              v.e(3).ang = 142.2;     v.e(3).ecc = 5.12;  c.e(3).radius = 1.150 ;
-                v.retinaSize = [8,8];v.pixperdeg = 8;
+            v.e(3).ang = 142.2;     v.e(3).ecc = 5.12;  c.e(3).radius = 1.150 ;
+            v.retinaSize = [8,8];v.pixperdeg = 8;
             v.retinaCenter = [-4,3];
         case 4 % central electrodes
             v.e(4).ang = 135;       v.e(4).ecc = 1.9;   c.e(4).radius = 1.150 ;
@@ -122,14 +120,12 @@ for ii=1:5
     end
     
     % use same cortex size and center across electrodes
-    c.cortexSize = [80,100];  
+    c.cortexSize = [80,100];
     c.cortexCenter = [30,0];
     
-     tp = p2p_c.define_temporalparameters();
+    tp = p2p_c.define_temporalparameters();
     
     c = p2p_c.define_cortex(c);
-    
-    
     tp = p2p_c.define_temporalparameters();
     
     c = p2p_c.define_cortex(c);
@@ -140,7 +136,7 @@ for ii=1:5
     c = p2p_c.generate_ef(c, ii);
     % this is the slow part...
     v = p2p_c.generate_rfmap(c, v, ii);
-
+    
     % Winawer Figure 2: Draw a phosphene for an amplitude of 50Hz, pw 1000 and dur = 1 and amp
     % = 5000 for each of the 5 elecrodes
     
@@ -165,7 +161,7 @@ for ii=1:5
         set(gca,'YDir','reverse');
         set(gca,'XDir','reverse');
     end
-        
+    
     
     for tt = 1:length(site(ii).trl)
         clear tmp;
@@ -222,26 +218,26 @@ for ii=1:length(W)
     figure(10)
     
     goodVals = ~isnan(W{ii}.area) & W{ii}.area>0;
-        p = polyfit(log(W{ii}.charge(goodVals)),log(W{ii}.area(goodVals)),1);
+    p = polyfit(log(W{ii}.charge(goodVals)),log(W{ii}.area(goodVals)),1);
     xx = [log(1),log(1000)];
     yy = polyval(p,xx);
     plot(xx,yy,'-','Color',colorList(ii,:));
     plot(log(W{ii}.charge),log(W{ii}.area),'ko','MarkerFaceColor',colorList(ii,:),'MarkerSize',10);
     
-
     
-
     
-    figure(11)   
     
-     goodVals = ~isnan(W{ii}.area) & S{ii}.area>0;
-        p = polyfit(log(W{ii}.charge(goodVals)),log(S{ii}.area(goodVals)),1);
+    
+    figure(11)
+    
+    goodVals = ~isnan(W{ii}.area) & S{ii}.area>0;
+    p = polyfit(log(W{ii}.charge(goodVals)),log(S{ii}.area(goodVals)),1);
     xx = [log(1),log(1000)];
     yy = polyval(p,xx);
     plot(xx,yy,'-','Color',colorList(ii,:));
     plot(log(W{ii}.charge),log(S{ii}.area),'ko','MarkerFaceColor',colorList(ii,:),'MarkerSize',10);
     
-  
+    
 end
 
 figure(10)
