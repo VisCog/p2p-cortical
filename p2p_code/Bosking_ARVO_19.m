@@ -111,7 +111,7 @@ clf
 plot(dt:dt:(dt*length(tmp.pt)),tmp.pt,'k-');
 set(gca,'YTick',[]);
 widen
-heighten(2)
+%heighten(2)
 xlabel('Time (s)');
 set(gca,'FontSize',16);
 ylabel('Amplitude');
@@ -121,7 +121,7 @@ clf
 plot(dt:dt:(dt*length(tmp.resp)),tmp.resp,'k-');
 set(gca,'YTick',[]);
 widen
-heighten
+%heighten
 xlabel('Time (s)');
 set(gca,'FontSize',16);
 ylabel('Response');

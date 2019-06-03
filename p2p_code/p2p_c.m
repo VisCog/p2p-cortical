@@ -62,8 +62,8 @@ classdef p2p_c
             
             if ~isfield(c, 'slope')
                 c.slope = .1652;
-                c.min = 0.9;
-                c.intercept = 0;
+                c.min = 0.1;
+                c.intercept = .1;
             end
             
             % define the size and resolution of cortical and visual space parameters
@@ -76,9 +76,6 @@ classdef p2p_c
             end
             if ~isfield(c, 'pixpermm')
                 c.pixpermm = 8; % choose the resolution to sample in mm.
-            end
-            if ~isfield(c, 'efthr')
-                c.efthr = .1; % choose the strength of the electric field to analyse  threshold
             end
         end
         function c = define_electrodes(c, v, varargin)
