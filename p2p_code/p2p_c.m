@@ -1,4 +1,9 @@
-% function [c,trl] = p2p_main()
+% p2p_c
+%
+% started with p2p_main, now hold all support functions for p2p cortex
+% project.
+%
+% functions can be called from outside with 'p2p_c.<function name>'
 
 
 classdef p2p_c
@@ -723,32 +728,7 @@ classdef p2p_c
             end
         end
         
-        function p2p_Tehovnik()
-            c.a = 0.3; c.cortexSize = [20,45]; c.pixpermm = 10; c.efthr = .15;
-            c.slope = .051; c.min = 0; c.intercept = .214;
-            c = define_cortex(c);
-            v.e.ang = 0; v.e.ecc = 3.7;v.retinaSize = [5,15];v.pixperdeg = 40; v = define_visualmap(v);
-            c = generate_corticalmap(c, v);
-            c.e.radius = 50/1000; c = define_electrodes(c, v);
-            
-            v.target.offset = 0.5; v.target.rad = 0.2; v = generate_visualtarget(v);
-            c = generate_corticalresponse(c, v);
-            c = generate_ef(c);
-            v = generate_rfmap(c, v);
-            tp = define_temporalparameters();
-            trl = define_exp(tp, 'Tehovnik');
-            v = generate_phosphene(v, tp, trls);
-            
-            % cortical projection into visual field
-            plotretgrid(v.e.rfmap(:, :, 1)*1000 + v.target.img*64, c, v,'rfmap', gray(64), 10, 'subplot(1,3,1)');
-            plotretgrid(v.e.rfmap_noRF*64 + v.target.img*64, c, v, 'rfmap no RF', gray(64), 10, 'subplot(1,3,2)');
-            plotretgrid(v.trls(1).maxphos(:, :, 1)*1000 + v.target.img*64, c, v,'phosphene', gray(64), 10, 'subplot(1,3,3)');
-            
-            % plotcortgrid(c.e.ef * 64, c, 'electric field', gray(64), 4, 'subplot(2,2,1)');
-            plotcortgrid(4 * c.target.R, c, 'Cortical response to visual target', gray(64), 4, 'subplot(1, 2, 1)');
-            plotcortgrid(64 * c.e.ef, c, 'Electrical response', gray(64), 4, 'subplot(1, 2, 2)');
-            
-        end
+
         function p2p_generic()
             c = define_cortex();
             v = define_visualmap();
