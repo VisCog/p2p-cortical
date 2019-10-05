@@ -428,6 +428,8 @@ classdef p2p_c
             for i=1:length(trl.pt)
                 tmp.R1 = tmp.R1 + tp.dt * ((tp.scFac * trl.pt(i))-tmp.R1)/tp.tau1;
                 tmp.R2 = max(tmp.R1, 0);
+                if ~strcmp(tp.model, 'chronaxie')
+                    
                 if strcmp(tp.model, 'nanduri')
                     tmp.R3 = tp.asymptote./(1+exp(-(tmp.R2(:,1)./tp.slope)+(tp.shift)));
                 elseif strcmp(tp.model, 'sigmoid')
@@ -441,11 +443,11 @@ classdef p2p_c
                 for j=1:3
                     tmp.R4(:, j+1) = tmp.R4(:, j+1) + tp.dt*(tmp.R4(:, j) - tmp.R4(:, j+1))/tp.tau3;
                 end
-                
-                trl.R1(i) = tmp.R1;
-                trl.R2(i) = tmp.R2;
                 trl.R3(i) = tmp.R3;
                 trl.resp(i)=tmp.R4(:, 4);
+                end
+                trl.R1(i) = tmp.R1;
+                trl.R2(i) = tmp.R2;
             end
         end
         function trl = generate_pt(trl, tp)
@@ -462,7 +464,7 @@ classdef p2p_c
                 trl.pt(lag+1:lag+length(tmp))=tmp;
                 trl.pt=trl.pt(1:length(tmp));
             end
-            if trl.dur<.5
+            if trl.dur<.5 && ~strcmp(tp.model, 'chronaxie')
                 trl.pt((end+1):round((.5/tp.dt))) = 0;
                 trl.t = 0:tp.dt:1-tp.dt;
             end
@@ -780,25 +782,6 @@ classdef p2p_c
             plotretgrid(v.trls(1).maxphos(:, :, 1)*64, c, v,'phosphene', gray(64), 10, 'subplot(1,3,3)');
         end
         
-        function trl = findthreshold(tp, v, trl) 
-            lo = 2;
-            hi = 50;
-            
-            for i=1:10
-                mid = (hi+lo)/2;
-                trl.amp = mid;
-                
-                trl = p2p_c.p2p_finite_element(tp, trl);
-                
-                trl.pred_amp = max(trl.resp(:));
-                if trl.pred_amp > v.drawthr
-                    hi = mid;
-                else
-                    lo = mid;
-                end
-            end
-            trl.thresh_amp = (hi+lo)/2;
-        end
         function junk()
             %% CODE TO INTEGRATE
             %         idx=find(trls(t).pt>0);
