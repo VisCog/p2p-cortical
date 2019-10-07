@@ -13,7 +13,6 @@ for i=43:50
     v.e(i).ecc = morevals(i-42);
     v.e(i).ang = (rand(1)*2*pi)-pi;
 end
-v.e = v.e(1:1);
 % Set all electrode radii to .25 mm
 for ii=1:length(v.e)
     c.e(ii).radius = 0.25;
@@ -39,6 +38,8 @@ hold on
 plot([v.e.ecc].*cos([v.e.ang]),[v.e.ecc].*sin([v.e.ang]),'ko','MarkerFaceColor','w');
 
 sim_sizes = [];
+v.e = v.e(1);
+ampList = [50 100 150 200 250 500,750]; 
 for ii=1:length(v.e)
  %   p2p_c.plotcortgrid(c.e(ii).ef(:, :,1) * 64, c, gray(64), 1,['subplot(2,4,', num2str(ii), '); set(gcf, ''Name'', ''electric field'')']);
     
@@ -47,6 +48,7 @@ for ii=1:length(v.e)
     trl = [];
     trl.expname = 'Bosking';
     for tt=1:length(ampList)
+        disp(tt);
         trl.amp = ampList(tt); trl.e = ii;
         trl = p2p_c.define_trial(tp,trl);
         
@@ -54,7 +56,7 @@ for ii=1:length(v.e)
         trl.sim_radius= mean([trl.ellipse(1).sigma_x trl.ellipse(1).sigma_y]);
         trl.sim_diameter = 2 * trl.sim_radius;
         trl.sim_brightness = max(trl.maxphos(:));
-        trl.maxresp = max(trl.resp);
+        trl.maxresp = max(trl.resp)
         sim_sizes(ii,tt) =  trl.sim_diameter;
     end
     drawnow

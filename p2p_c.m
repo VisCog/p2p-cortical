@@ -137,7 +137,7 @@ classdef p2p_c
             end
             tp.dt = .001 * 10^-3; % time sampling in ms
             if ~isfield(tp, 'scFac'); tp.scFac = 1; end
-            tp.tau1 = 5.0000e-05; %.2 * 10^-3; %4.0000e-05; %Fitting Brindley; %Tehovnik et al 2004
+            tp.tau1 =.012 * 10^-3;% 5.0000e-05; % %4.0000e-05; %Fitting Brindley; %Tehovnik et al 2004
             tp.tau2_ca = 45.250* 10^-3;  %38-57, from retina
             tp.tau3 =  26.250* 10^-3; % 24-33 from retina
             tp.e = 8.73; % from retina
