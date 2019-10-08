@@ -8,27 +8,13 @@
 
 classdef p2p_c
     methods(Static)
-        
-        %p2p_Winawer();
-        
-        %p2p_Tehovnik();
-        %p2p_generic();
-        
-        
-     
         % definitions
         function v = define_visualmap(v)
-            if ~isfield(v.e, 'ang')
-                v.e.ang = 19.8; % position of the electode in visual co-ordinates
-                v.e.ecc = 26.6;
+            if ~isfield(v.e, 'ang') % position of the electode in visual co-ordinates
+                v.e.ang = 19.8; v.e.ecc = 26.6;
             end
-            if ~isfield(v, 'retinaSize')
-                v.retinaSize = [70,70]; %  [height, width diameter in degrees]
-            end
-            
-            if ~isfield(v,'retinaCenter')
-                v.retinaCenter = [0,0];
-            end
+            if ~isfield(v, 'retinaSize')    v.retinaSize = [70,70]; end%  [height, width diameter in degrees]
+            if ~isfield(v,'retinaCenter')    v.retinaCenter = [0,0];  end
             
             if ~isfield(v,'pixperdeg')
                 v.pixperdeg = 20;
@@ -41,47 +27,63 @@ classdef p2p_c
             [v.X,v.Y] = meshgrid(v.x, v.y);
             
             %Make the grid in retinal coordinates
-            v.angList = -90:45:90;
-            v.eccList = [1 2 3 5 8 13 21 34];
+            if ~isfield(v, 'angList')
+                v.angList = -90:45:90;
+            end
+            if ~isfield(v, 'eccList')
+                v.eccList = [1 2 3 5 8 13 21 34];
+            end
             v.gridColor = [1 1 0];
             v.n = 201;
         end
         function c = define_cortex(c)
             
-            % cortical magnification, typical log z transformation parameters (Based on Duncan and Boynton)
-            c.k = 20; %scale
-            if ~isfield(c, 'a')
+            %% cortical magnification,
+            % typical log z transformation parameters (based on early
+            % Schwartz model
+            if ~isfield(c, 'animal')   c.animal = 'human'; end
+            if strcmp(c.animal, 'human')
+                c.k = 15; %scale
                 c.a = 0.5; %fovea expansion for human, macaque is 0.3
+            elseif strcmp(c.animal, 'macaque')
+                c.k = 5; %scale
+                c.a = 0.3; % values set by eyeballing Toottell data
             end
             
-            % current spread parameters
-            % current spread parameters, based on Ahuja
-            %             c.afac=1.69; % parameters for current spread
-            %             c.ct=14;
+            %% receptive fields
+            if ~isfield(c,'ar'); c.ar = 0.25; end
+            if ~isfield(c, 'rfmodel');   c.rfmodel = 'smirnakis';  end
+            if strcmp(c.rfmodel, 'smirnakis')
+                if strcmp(c.animal, 'human')
+                    c.slope =  0.05; % in terms of sigma
+                    c.intercept = 0.69;
+                    c.min = 0;
+                elseif strcmp(c.animal, 'macaque')
+                    c.slope =  0.06; % in terms of sigma
+                    c.intercept = 0.42;
+                    c.min = 0;
+                end
+            elseif strcmp(c.rfmodel, 'freeman')  % Freeman and Simoncelli, 2011
+                c.slope = 0.1644; % receptive field diameter
+                c.min = 1.21;
+                c.intercept = 0;
+            end
+            %% ocular dominance columns
+            if ~isfield(c, 'sig') c.sig = .5;  end
+            % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex. sig determines the distribution of OD values. Default is 5.
+            % The larger sig, the more the distribution tends toward 0 and 1.
             
-            % receptive field parameters
-            c.ar = .5;  % aspect ratio of V1 RFs
-            c.sig = .5; % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex. sig determines the distribution of OD values. Default is 5.  The larger sig, the more the distribution tends toward 0 and 1.
-            c.ODsize = 0.863; % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex, average width of a column in mm
-            c.filtSz = 3; % 3mm creates the initial OD and orientation maps
-            
-            if ~isfield(c, 'slope')
-                c.slope = .1652;
-                c.min = 0.1;
-                c.intercept = .1;
+            if strcmp(c.animal, 'human')
+                c.ODsize = 0.863; % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex, average width of a column in mm
+                c.filtSz = 3; % 3mm creates the initial OD and orientation maps
             end
             
             % define the size and resolution of cortical and visual space parameters
             c.gridColor = [1,1,0];
-            if ~isfield(c, 'cortexSize')
-                c.cortexSize = [80,100];  % %[height, width] Size of cortical maps (mm)
-            end
-            if ~isfield(c, 'cortexCenter')
-                c.cortexCenter = [30,0]; % center of electrode array (mm on cortex)
-            end
-            if ~isfield(c, 'pixpermm')
-                c.pixpermm = 8; % choose the resolution to sample in mm.
-            end
+            if ~isfield(c, 'cortexSize'); c.cortexSize = [80,100]; end %[height, width] Size of cortical maps (mm)
+            if ~isfield(c, 'cortexCenter'); c.cortexCenter = [30,0]; end% center of electrode array (mm on cortex)
+            if ~isfield(c, 'pixpermm');  c.pixpermm = 8; end    % choose the resolution to sample in mm.
+            
         end
         function c = define_electrodes(c, v, varargin)
             % either needs an electrode position in cortical co-ordinates
@@ -97,40 +99,58 @@ classdef p2p_c
                     c.e(idx(ii)).radius = 500/1000;
                 end
             end
+            if ~isfield(c.e, 'shape')
+                for ii=1:length(idx)
+                    c.e(idx(ii)).shape = 'round';
+                end
+            end
             
+            for ii = 1:length(idx)
+                c.e(idx(ii)).area = pi*(c.e(idx(ii)).radius.^2);
+            end
             for ii=1:length(idx)
                 if v.e(idx(ii)).ang>-90 && v.e(idx(ii)).ang <90
                     c.e(idx(ii)).hemi = 'lh';
                 else
                     c.e(idx(ii)).hemi = 'rh';
                 end
-                c.e(idx(ii)).area = pi*(c.e(idx(ii)).radius.^2);
-            end
-            
-            % tranform electrodes
-            if isfield(v.e, 'ecc')
-                for ii=1:length(idx)
-                    if strcmp(c.e(idx(ii)).hemi, 'rh')
-                        z = v.e(idx(ii)).ecc.*exp(sqrt(-1)*(v.e(idx(ii)).ang+180)*pi/180);
-                    else
-                        z = v.e(idx(ii)).ecc.*exp(sqrt(-1)*v.e(idx(ii)).ang*pi/180);
-                    end
-                    
-                    c.e(idx(ii)).z = p2p_c.c2v(c,z);
-                    c.e(idx(ii)).x = real(c.e(idx(ii)).z);
-                    
-                    c.e(idx(ii)).y = imag(c.e(idx(ii)).z); % turn into mm
+                % tranform electrodes
+                
+                    for ii=1:length(idx)
+                        if strcmp(c.e(idx(ii)).hemi, 'rh')
+                            z = v.e(idx(ii)).ecc.*exp(sqrt(-1)*(v.e(idx(ii)).ang+180)*pi/180);
+                        else
+                            z = v.e(idx(ii)).ecc.*exp(sqrt(-1)*v.e(idx(ii)).ang*pi/180);
+                        end
+                        c.e(idx(ii)).z = p2p_c.c2v(c,z);
+                        c.e(idx(ii)).x = real(c.e(idx(ii)).z);
+                        c.e(idx(ii)).y = imag(c.e(idx(ii)).z); % turn into mm
+                
                 end
             end
-            
         end
+        function v = c2v_define_electrodes(c,v)
+             if nargin <3
+                idx = 1:length(c.e);
+            else
+                idx = varargin{1};
+             end
+            for ii = 1:length(idx)
+            v.e(idx(ii)).z = p2p_c.v2c(c,c.e(idx(ii)).x + sqrt(-1)*c.e(idx(ii)).y);
+            v.e(idx(ii)).ang = angle(v.e(idx(ii)).z) * 180/pi;
+            v.e(idx(ii)).ecc = abs(v.e(idx(ii)).z);
+            v.e(idx(ii)).x = real(v.e(idx(ii)).z);
+            v.e(idx(ii)).y = imag(v.e(idx(ii)).z);
+            end
+        end
+        
         function tp = define_temporalparameters(varargin)
             if nargin>0
                 tp = varargin{1};
             end
-            tp.dt = .01 * 10^-3; % time sampling in ms
+            tp.dt = .001 * 10^-3; % time sampling in ms
             if ~isfield(tp, 'scFac'); tp.scFac = 1; end
-            tp.tau1 = .2 * 10^-3; %Tehovnik et al 2004
+            tp.tau1 =.012 * 10^-3;% 5.0000e-05; % %4.0000e-05; %Fitting Brindley; %Tehovnik et al 2004
             tp.tau2_ca = 45.250* 10^-3;  %38-57, from retina
             tp.tau3 =  26.250* 10^-3; % 24-33 from retina
             tp.e = 8.73; % from retina
@@ -140,35 +160,59 @@ classdef p2p_c
             tp.tau2_cl = tp.tau2_ca * 8; % used for the conv model, fe uses p.tau2_ca
             
             % nonlinearity parameters
-            tp.slope=.3; % larger number = shallower slope
-            tp.asymptote=14;
-            tp.shift=47; % shifts curve along x-axis
+            if ~isfield(tp, 'model');  tp.model = 'normcdf'; end
+            if strcmp(tp.model, 'nanduri')
+                disp('using nanduri semisaturation constant')
+                tp.slope=3; %.3; % larger number = shallower slope
+                tp.asymptote=14; %14;
+                tp.shift=47; %47; % shifts curve along x-axis
+            elseif strcmp(tp.model, 'sigmoid')
+                disp('using sigmoid semisaturation constant')
+                tp.asymptote = 2000;
+                tp.e50 = 500; % electrical semisaturation constant
+            elseif strcmp(tp.model, 'normcdf')
+                disp('using normcdf semisaturation constant')
+                tp.asymptote = 1500;
+                tp.mean = 750;
+                tp.sigma = 175;
+            end
         end
         function trl = define_trial(tp,trl)
+            %
             if ~isfield(trl,'expname'); trl.expname = 'generic'; end
             if ~isfield(trl,'e'); trl.e = 1; end
             
             if strcmp(trl.expname, 'Tehovnik')
-                trl.dur = 100*10^-3; % duration in ms
-                trl.pw = .2/1000; % pulse width in ms
+                trl.dur = 100 * 10^-3; % duration in s
+                trl.pw = .2 * 10^-3; % pulse width in s
                 trl.order = -1; % 1 = cathodic first, -1  = anodic first
                 trl.freq = 200; % -1 for a single pulse, NaN if not using a temporal model
                 trl.amp = 50; % current amplitude in microAmps
             elseif strcmp(trl.expname, 'Bosking')
-                trl.dur = 250*10^-3; % duration in ms
+                trl.dur = 200*10^-3; % duration in s
                 trl.t = 0:tp.dt:trl.dur-tp.dt;
-                trl.pw = .1/1000; % pulse width in ms
+                trl.pw = .1 * 10^-3; % pulse width in s
                 trl.order = 1; % 1 = cathodic first, -1  = anodic first
                 trl.freq = 200; % -1 for a single pulse, NaN if not using a temporal model
             elseif strcmp(trl.expname,'Evans')
                 trl.order = -1;
-            if ~isfield(trl, 'pw');     trl.pw = .25/1000;     end
-            if ~isfield(trl, 'dur');    trl.dur = .5;   end% duration in ms
-            if ~isfield(trl, 'freq');   trl.freq = 50;          end %NaN if not using a temporal model
+                if ~isfield(trl, 'pw');     trl.pw = .25/1000;     end
+                if ~isfield(trl, 'dur');    trl.dur = .5;   end% duration in ms
+                if ~isfield(trl, 'freq');   trl.freq = 50;          end %NaN if not using a temporal model
                 trl.t = 0:tp.dt:trl.dur-tp.dt;
+            elseif strcmp(trl.expname, 'Beauchamp_BioRxiv')
+                trl.order = -1;
+                if ~isfield(trl, 'amp'); trl.amp = 1000; end
+                if ~isfield(trl, 'pw');     trl.pw = .1*10^-3;     end
+                if ~isfield(trl, 'dur');    trl.dur =  50*10^-3;   end% duration in ms
+                if ~isfield(trl, 'freq');   trl.freq = 200;        end %NaN if not using a temporal model
+                if ~isfield(trl, 'trialdur'); trl.trialdur = 1.7;  end % allows filler at end of trial
+                trl.t = 0:tp.dt:trl.dur-tp.dt;
+                
             end
-
+            
             if ~isfield(trl, 'dur');    trl.dur = 1000*10^-3;   end% duration in ms
+            if ~isfield(trl, 'trialdur');    trl.trialdur = trl.dur;   end% duration in ms
             trl.t = 0:tp.dt:trl.dur-tp.dt;
             if ~isfield(trl, 'pw');     trl.pw = .25 * 10^-3;      end
             if ~isfield(trl, 'ip');     trl.ip = 0;             end % interphase delay
@@ -176,7 +220,7 @@ classdef p2p_c
             if ~isfield(trl, 'order');  trl.order = 1;          end% 1 = cathodic first, -1  = anodic first
             if ~isfield(trl, 'freq');   trl.freq = 60;          end %NaN if not using a temporal model
             if ~isfield(trl, 'amp');    trl.amp = 100;          end% current amplitude in microAmps
-            trl.pt = p2p_c.generate_pt(trl, tp);
+            trl = p2p_c.generate_pt(trl, tp);
             trl.CperTrial = (trl.amp/1000) * trl.dur * trl.freq * trl.pw*10.^3;
             trl.CperPulse = trl.pw * trl.amp/1000;
         end
@@ -192,7 +236,6 @@ classdef p2p_c
             % [pinwheel,OD] = makePinwheelODMaps(x,y,sig)
             sz = size(c.X);
             % Rojer and Schwartz' method of bandpassing random noise:
-            
             % Rojer, A.S. and E.L. Schwartz, Cat and monkey cortical columnar patterns
             %modeled by bandpass-filtered 2D white noise. Biol Cybern, 1990. 62(5): c. 381-91.
             
@@ -212,13 +255,10 @@ classdef p2p_c
             WX = gradient(W);
             Gx = angle(WX);
             c.ODmap = normcdf(Gx*c.sig);
-        
-            
             
             % create visual co-ordinates for the entire cortical meshgrid
             c.v2c.z = p2p_c.v2c(c, c.X+sqrt(-1)*c.Y);
             c.v2c.ANG = angle(c.v2c.z) * 180/pi;
-            
             c.v2c.ECC = abs(c.v2c.z);
             c.v2c.X = real(c.v2c.z);
             c.v2c.Y = imag(c.v2c.z);
@@ -232,15 +272,15 @@ classdef p2p_c
             c.v2c.gridEccZ = p2p_c.c2v(c, v.zEcc);
             
             c.RFmap = max(c.slope .* abs(c.v2c.ECC), c.min)+c.intercept;
-
+            
         end
-       
+        
         function [c] = generate_ef(c, varargin)
             % generates an electric field for each electrode, currently assumes they
             % are on the surface
             %
             % max electric field is normalized to 1
-            if nargin <2
+            if nargin < 2
                 idx = 1:length(c.e);
             else
                 idx = varargin{1};
@@ -272,14 +312,12 @@ classdef p2p_c
                 if mod(pixNum, 8000)==0
                     disp([num2str(round((100*pixNum)/length(c.X(:)))),  '% complete' ]);
                 end
-                
                 x0 = c.v2c.X(pixNum); % x center
                 y0 = c.v2c.Y(pixNum); % y center
                 theta = pi-c.ORmap(pixNum);  %orientation
                 sigma_x = c.RFmap(pixNum) * c.ar; % major axis sd
                 sigma_y = c.RFmap(pixNum); % minor axis sd
                 G = Gauss_2D(v,x0,y0,theta,sigma_x,sigma_y);
-                
                 c.target.R(pixNum) = sum(G(:).*v.target.img(:));
             end
             c.target.R = reshape(c.target.R, size(c.X));
@@ -363,7 +401,7 @@ classdef p2p_c
             end
             
             % what rule to use to translate phosphene image to brightness?
-
+            
             beta = 6; % soft-max rule across pixels for both eyes
             trl.sim_brightness = ((1/v.pixperdeg.^2) * sum(trl.maxphos(:).^beta)^(1/beta));
         end
@@ -405,39 +443,50 @@ classdef p2p_c
             tmp.ca = 0;
             tmp.cl = 0;
             tmp.R1 = 0;
+            tmp.R1 = 0;
+            tmp.R4 =  zeros(1,4);
             
-            tmp.R3norm = 0;
-            tmp.R4a =  zeros(1,4);
-            %tmp.R4ax =  zeros(1,4);
-
-            for i=1:length(trl.pt)-1
-                % R1
-                tmp.R1= tmp.R1 + tp.dt * ((tp.scFac * trl.pt(i))-tmp.R1)/tp.tau1;
-                tmp.R4a(:,1) = max(tmp.R1, 0);
-                tmp.R4a(:, 1)=tp.asymptote./(1+exp(-(tmp.R4a(:,1)./tp.slope)+tp.shift));
-                for j=1:3
-                    tmp.R4a(:,j+1) = tmp.R4a(:,j+1) + tp.dt*(tmp.R4a(:,j) - tmp.R4a(:,j+1))/tp.tau3;
+            for i=1:length(trl.pt)
+                tmp.R1 = tmp.R1 + tp.dt * ((tp.scFac * trl.pt(i))-tmp.R1)/tp.tau1;
+                tmp.R2 = max(tmp.R1, 0);
+                if ~strcmp(tp.model, 'chronaxie')
+                    
+                    if strcmp(tp.model, 'nanduri')
+                        tmp.R3 = tp.asymptote./(1+exp(-(tmp.R2(:,1)./tp.slope)+(tp.shift)));
+                    elseif strcmp(tp.model, 'sigmoid')
+                        tmp.R3 = tp.asymptote .* tmp.R2.^2./(tmp.R2.^2 + tp.e50.^2);
+                    elseif strcmp(tp.model, 'normcdf')
+                        tmp.R3 = tp.asymptote.*normcdf(tmp.R2, tp.mean, tp.sigma);
+                    elseif strcmp(tp.model, 'nosaturation')
+                        tmp.R3 = tmp.R2;
+                    end
+                    tmp.R4(:, 1) = tmp.R3;
+                    for j=1:3
+                        tmp.R4(:, j+1) = tmp.R4(:, j+1) + tp.dt*(tmp.R4(:, j) - tmp.R4(:, j+1))/tp.tau3;
+                    end
+                    trl.R3(i) = tmp.R3;
+                    trl.resp(i)=tmp.R4(:, 4);
                 end
-                tmp.R4(i) = tmp.R4a(:,4);
+                trl.R1(i) = tmp.R1;
+                trl.R2(i) = tmp.R2;
             end
-            trl.resp=tmp.R4;
         end
-        function pt = generate_pt(trl, tp)
+        function trl = generate_pt(trl, tp)
             if isnan(trl.freq) % if not using a temporal model at all
                 pt = 1;
             else
                 t = 0:tp.dt:trl.dur-tp.dt;
-                on =  mod(t,1/trl.freq) < trl.pw;
+                on =  mod(trl.t,1/trl.freq) < trl.pw;
                 delay =  trl.pw+trl.ip;
                 lag = round(trl.lag/tp.dt);
-                off = mod(t-delay,1/trl.freq) < trl.pw;
+                off = mod(trl.t-delay,1/trl.freq) < trl.pw;
                 tmp  = trl.amp.*(on-off);
-                pt= zeros(1, lag+length(tmp));
-                pt(lag+1:lag+length(tmp))=tmp;
-                pt=pt(1:length(tmp));
+                trl.pt= zeros(1, lag+length(tmp));
+                trl.pt(lag+1:lag+length(tmp))=tmp;
             end
-            if trl.dur<1
-                pt((end+1):round((1/tp.dt))) = 0;
+            if trl.dur<trl.trialdur
+                trl.pt((end+1):round((trl.trialdur/tp.dt))) = 0;
+                trl.t = 0:tp.dt:1-tp.dt;
             end
         end
         function v = generate_visualtarget(v)
@@ -556,7 +605,9 @@ classdef p2p_c
             
             fH=figure(figNum);
             eval(spstr); colormap(cmap);
-            image(c.x, c.y, img); hold on
+            if ~isempty(img)
+                image(c.x, c.y, img); hold on
+            end
             xlabel('mm'); ylabel('mm')
             set(gca,'YDir','normal');
             plot(c.v2c.gridAngZ, '-', 'Color', c.gridColor);
@@ -724,11 +775,9 @@ classdef p2p_c
                     case 'draw_brightness'
                         axis([0 25 0 25]);
                 end
-                
             end
         end
         
-
         function p2p_generic()
             c = define_cortex();
             v = define_visualmap();
@@ -803,4 +852,3 @@ classdef p2p_c
     end
 end
 
-    
