@@ -28,7 +28,7 @@ end
 c.cortexSize = [40,60]; c.pixpermm = 6; c.efthr = .05;
 v.retinaSize = [40,40];v.pixperdeg = 5;  %10
 c = p2p_c.define_cortex(c);
-v = p2p_c.c2v_define_electrodes(c,v); % convert cortical electrodes to retina
+v = p2p_c.c2v_define_electrodes(c,v, 1:length(c.e)); % convert cortical electrodes to retina
 c = p2p_c.define_electrodes(c, v);
 v = p2p_c.define_visualmap(v); 
 [c, v] = p2p_c.generate_corticalmap(c, v);
