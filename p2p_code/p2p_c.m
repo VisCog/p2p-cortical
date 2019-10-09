@@ -37,7 +37,6 @@ classdef p2p_c
             v.n = 201;
         end
         function c = define_cortex(c)
-            
             %% cortical magnification,
             % typical log z transformation parameters (based on early
             % Schwartz model
@@ -49,7 +48,6 @@ classdef p2p_c
                 c.k = 5; %scale
                 c.a = 0.3; % values set by eyeballing Toottell data
             end
-            
             %% receptive fields
             if ~isfield(c,'ar'); c.ar = 0.25; end
             if ~isfield(c, 'rfmodel');   c.rfmodel = 'smirnakis';  end
@@ -85,14 +83,12 @@ classdef p2p_c
             if ~isfield(c, 'pixpermm');  c.pixpermm = 8; end    % choose the resolution to sample in mm.
             
         end
-        function c = define_electrodes(c, v, varargin)
+        function c = define_electrodes(c, v)
             % either needs an electrode position in cortical co-ordinates
             % or needs to take in the position of the electrode in visual co-ordinates
-            if nargin <3
-                idx = 1:length(v.e);
-            else
-                idx = varargin{1};
-            end
+            
+            idx = 1:length(v.e);
+            
             
             if ~isfield(c.e, 'radius')
                 for ii=1:length(idx)
@@ -116,31 +112,27 @@ classdef p2p_c
                 end
                 % tranform electrodes
                 
-                    for ii=1:length(idx)
-                        if strcmp(c.e(idx(ii)).hemi, 'rh')
-                            z = v.e(idx(ii)).ecc.*exp(sqrt(-1)*(v.e(idx(ii)).ang+180)*pi/180);
-                        else
-                            z = v.e(idx(ii)).ecc.*exp(sqrt(-1)*v.e(idx(ii)).ang*pi/180);
-                        end
-                        c.e(idx(ii)).z = p2p_c.c2v(c,z);
-                        c.e(idx(ii)).x = real(c.e(idx(ii)).z);
-                        c.e(idx(ii)).y = imag(c.e(idx(ii)).z); % turn into mm
-                
+                for ii=1:length(idx)
+                    if strcmp(c.e(idx(ii)).hemi, 'rh')
+                        z = v.e(idx(ii)).ecc.*exp(sqrt(-1)*(v.e(idx(ii)).ang+180)*pi/180);
+                    else
+                        z = v.e(idx(ii)).ecc.*exp(sqrt(-1)*v.e(idx(ii)).ang*pi/180);
+                    end
+                    c.e(idx(ii)).z = p2p_c.c2v(c,z);
+                    c.e(idx(ii)).x = real(c.e(idx(ii)).z);
+                    c.e(idx(ii)).y = imag(c.e(idx(ii)).z); % turn into mm
+                    
                 end
             end
         end
         function v = c2v_define_electrodes(c,v)
-             if nargin <3
-                idx = 1:length(c.e);
-            else
-                idx = varargin{1};
-             end
+            idx = 1:length(c.e);
             for ii = 1:length(idx)
-            v.e(idx(ii)).z = p2p_c.v2c(c,c.e(idx(ii)).x + sqrt(-1)*c.e(idx(ii)).y);
-            v.e(idx(ii)).ang = angle(v.e(idx(ii)).z) * 180/pi;
-            v.e(idx(ii)).ecc = abs(v.e(idx(ii)).z);
-            v.e(idx(ii)).x = real(v.e(idx(ii)).z);
-            v.e(idx(ii)).y = imag(v.e(idx(ii)).z);
+                v.e(idx(ii)).z = p2p_c.v2c(c,c.e(idx(ii)).x + sqrt(-1)*c.e(idx(ii)).y);
+                v.e(idx(ii)).ang = angle(v.e(idx(ii)).z) * 180/pi;
+                v.e(idx(ii)).ecc = abs(v.e(idx(ii)).z);
+                v.e(idx(ii)).x = real(v.e(idx(ii)).z);
+                v.e(idx(ii)).y = imag(v.e(idx(ii)).z);
             end
         end
         
