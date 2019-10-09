@@ -1,6 +1,6 @@
 % p2p_c
 %
-% started with p2p_main, now hold all support functions for p2p cortex
+%  holds all support functions for p2p cortex
 % project.
 %
 % functions can be called from outside with 'p2p_c.<function name>'
@@ -17,7 +17,7 @@ classdef p2p_c
             if ~isfield(v,'retinaCenter')    v.retinaCenter = [0,0];  end
             
             if ~isfield(v,'pixperdeg')
-                v.pixperdeg = 20;
+                v.pixperdeg = 7;
             end
             if ~isfield(v, 'drawthr')
                 v.drawthr = 0.15;
@@ -83,13 +83,20 @@ classdef p2p_c
             if ~isfield(c, 'pixpermm');  c.pixpermm = 8; end    % choose the resolution to sample in mm.
             
         end
+        function v = c2v_define_electrodes(c,v)
+            idx = 1:length(c.e);
+            for ii = 1:length(idx)
+                v.e(idx(ii)).z = p2p_c.v2c(c,c.e(idx(ii)).x + sqrt(-1)*c.e(idx(ii)).y);
+                v.e(idx(ii)).ang = angle(v.e(idx(ii)).z) * 180/pi;
+                v.e(idx(ii)).ecc = abs(v.e(idx(ii)).z);
+                v.e(idx(ii)).x = real(v.e(idx(ii)).z);
+                v.e(idx(ii)).y = imag(v.e(idx(ii)).z);
+            end
+        end
         function c = define_electrodes(c, v)
-            % either needs an electrode position in cortical co-ordinates
-            % or needs to take in the position of the electrode in visual co-ordinates
-            
+            %  takes in the position of the electrode in visual co-ordinates
             idx = 1:length(v.e);
-            
-            
+                
             if ~isfield(c.e, 'radius')
                 for ii=1:length(idx)
                     c.e(idx(ii)).radius = 500/1000;
@@ -121,18 +128,7 @@ classdef p2p_c
                     c.e(idx(ii)).z = p2p_c.c2v(c,z);
                     c.e(idx(ii)).x = real(c.e(idx(ii)).z);
                     c.e(idx(ii)).y = imag(c.e(idx(ii)).z); % turn into mm
-                    
                 end
-            end
-        end
-        function v = c2v_define_electrodes(c,v)
-            idx = 1:length(c.e);
-            for ii = 1:length(idx)
-                v.e(idx(ii)).z = p2p_c.v2c(c,c.e(idx(ii)).x + sqrt(-1)*c.e(idx(ii)).y);
-                v.e(idx(ii)).ang = angle(v.e(idx(ii)).z) * 180/pi;
-                v.e(idx(ii)).ecc = abs(v.e(idx(ii)).z);
-                v.e(idx(ii)).x = real(v.e(idx(ii)).z);
-                v.e(idx(ii)).y = imag(v.e(idx(ii)).z);
             end
         end
         
@@ -140,16 +136,16 @@ classdef p2p_c
             if nargin>0
                 tp = varargin{1};
             end
-            tp.dt = .001 * 10^-3; % time sampling in ms
+            tp.dt = .001 * 10^-3; % time sampling in ms, should be no larger than 1/10 of tau1
             if ~isfield(tp, 'scFac'); tp.scFac = 1; end
             tp.tau1 =.012 * 10^-3;% 5.0000e-05; % %4.0000e-05; %Fitting Brindley; %Tehovnik et al 2004
-            tp.tau2_ca = 45.250* 10^-3;  %38-57, from retina
+       %     tp.tau2_ca = 45.250* 10^-3;  %38-57, from retina
             tp.tau3 =  26.250* 10^-3; % 24-33 from retina
-            tp.e = 8.73; % from retina
+        %    tp.e = 8.73; % from retina
             
             % leak out of charge accumulation
-            tp.flag_cl=0; % 1 if you want to charge to leak back out of the system
-            tp.tau2_cl = tp.tau2_ca * 8; % used for the conv model, fe uses p.tau2_ca
+         %   tp.flag_cl=0; % 1 if you want to charge to leak back out of the system
+         %   tp.tau2_cl = tp.tau2_ca * 8; % used for the conv model, fe uses p.tau2_ca
             
             % nonlinearity parameters
             if ~isfield(tp, 'model');  tp.model = 'normcdf'; end
@@ -200,7 +196,14 @@ classdef p2p_c
                 if ~isfield(trl, 'freq');   trl.freq = 200;        end %NaN if not using a temporal model
                 if ~isfield(trl, 'trialdur'); trl.trialdur = 1.7;  end % allows filler at end of trial
                 trl.t = 0:tp.dt:trl.dur-tp.dt;
-                
+            elseif strcmp(trl.expname, 'Troyk_hypothetical')
+                trl.order = -1;
+                if ~isfield(trl, 'amp');    trl.amp = 1000; end
+                if ~isfield(trl, 'pw');     trl.pw = .1*10^-3;     end
+                if ~isfield(trl, 'dur');    trl.dur =  50*10^-3;   end% duration in ms
+                if ~isfield(trl, 'freq');   trl.freq = 200;        end %NaN if not using a temporal model
+                if ~isfield(trl, 'trialdur'); trl.trialdur = 1.7;  end % allows filler at end of trial
+                trl.t = 0:tp.dt:trl.dur-tp.dt;    
             end
             
             if ~isfield(trl, 'dur');    trl.dur = 1000*10^-3;   end% duration in ms
@@ -264,7 +267,6 @@ classdef p2p_c
             c.v2c.gridEccZ = p2p_c.c2v(c, v.zEcc);
             
             c.RFmap = max(c.slope .* abs(c.v2c.ECC), c.min)+c.intercept;
-            
         end
         
         function [c] = generate_ef(c, varargin)
@@ -272,11 +274,8 @@ classdef p2p_c
             % are on the surface
             %
             % max electric field is normalized to 1
-            if nargin < 2
-                idx = 1:length(c.e);
-            else
-                idx = varargin{1};
-            end
+           idx = 1:length(c.e);
+
             if ~isfield(c, 'emodel')
                 c.emodel = 'Tehovnik';
                 I0 = 1;
@@ -325,13 +324,7 @@ classdef p2p_c
         function [v] = generate_rfmap(c, v, varargin)
             % generates the sum of weighted receptive fields activated by an electrode
             % normalized so the max is 1
-            
-            if nargin <3
-                idx = 1:length(v.e);
-            else
-                idx = varargin{1};
-            end
-            
+            idx = 1:length(v.e);
             for ii = 1:length(idx)
                 rfmap_noRF = zeros(size(v.X)); % percept based on electric field
                 rfmap = zeros([size(v.X), 2]); % percept that includes a cortical model
@@ -365,8 +358,10 @@ classdef p2p_c
                         rfmap_noRF = rfmap_noRF + (c.e(idx(ii)).ef(pixNum) * exp(-( (v.X-x0).^2/(0.01) + (v.Y-y0).^2/(.01))));
                     end
                 end
-                if sum(rfmap(:)>0)<100
-                    disp('WARNING! Too few pixels passed ef threshold, try lowering c.efthr');
+                if sum(rfmap(:)>0)<20
+                    disp('WARNING! Too few pixels passed ef threshold.');
+                    disp(' try lowering c.efthr, checking location of electrodes relative to cortical sheet & ');
+                    disp('checking the sampling resolution of cortex');
                 end
                 v.e(idx(ii)).rfmap_noRF = rfmap_noRF./max(rfmap_noRF(:));
                 v.e(idx(ii)).rfmap = rfmap./max(rfmap(:));

@@ -22,8 +22,8 @@ stim_order_C = [5 1 3 8 12 20 18 ];
 stim_order_N = [3 8 12 20 11 5  9 17];
 stim_order_S = [1 3 8  12 11 10 9 13 17 18 19 20];
 stim_order_U = [8 12 20 19 14 9 5 ];
-filename = 'beauchamp_U_';
-stim_order = stim_order_N;
+filename = 'beauchamp_S_';
+stim_order = stim_order_S;
 stim_method = 'sequential';
 filename = [filename, stim_method];
 
