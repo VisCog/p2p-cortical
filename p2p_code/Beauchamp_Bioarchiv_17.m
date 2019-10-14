@@ -16,16 +16,14 @@ for ii = 1:length(v.e)
     ax.RLim = [0 13];
     c.e(ii).radius = 0.25;
 end
+
 % order upper panel
 stim_order_C = [5 1 3 8 12 20 18 ];
-
 stim_order_N = [3 8 12 20 11 5  9 17];
 stim_order_S = [1 3 8  12 11 10 9 13 17 18 19 20];
 stim_order_U = [8 12 20 19 14 9 5 ];
 filename = 'beauchamp_S_';
 stim_order = stim_order_S;
-stim_method = 'sequential';
-filename = [filename, stim_method];
 
 % Set all electrode radii to .25 mm
 
@@ -63,34 +61,45 @@ for ii=1:length(stim_order)
     drawnow
 end
 
-%% assuming simultaneous stimulation
-figure(3); clf
-img = savedtrial(1).maxphos(:, :, 1)*40;
-for ii=2:length(stim_order)
-    img = img+(savedtrial(ii).maxphos(:, :, 1)*40); hold on
-    img(99:101, 99:101) = 255;
-end
-image(v.x, v.y, img); colormap(gray);
-%% creating movie
+%% creating movie, sequential
 close all
 figure(1); clf
-vid = VideoWriter([filename, '.avi']);
+vid = VideoWriter([[filename, 'sequential'], '.avi']);
 vid.FrameRate = 30;
 open(vid);
-itpl= round(linspace(1,length(trl.pt), 30*trl.trialdur));
-img = zeros(size(squeeze(savedtrial(ii).maxphos(:, :, 1))));
+itpl= round(linspace(1,length(savedtrial(end).pt), 30*savedtrial(end).trialdur));
+img = zeros(size(squeeze(savedtrial(end).maxphos(:, :, 1))));
 for k = 1:length(itpl)
-    img = zeros(size(squeeze(savedtrial(ii).maxphos(:, :, 1))));
+    img = zeros(size(squeeze(savedtrial(end).maxphos(:, :, 1))));
     for ii=1:length(stim_order)
         img = img + squeeze(savedtrial(ii).maxphos(:, :, 1))./max(savedtrial(ii).resp).*savedtrial(ii).resp(itpl(k));
     end
-    img(99:101, 99:101) = 255;
-    image(v.x, v.y, img*30); axis tight manual; axis off; colormap(gray);
+    p2p_c.plotretgrid(img*25, v, gray(256), 1,['';]);
     frame = getframe(gca);
     writeVideo(vid,frame);
 end
 close(vid)
-save(filename, 'savedtrial', 'stim_order');
+save(filename, 'savedtrial', 'stim_order', 'v');
+
+%% create movie simultaneous
+close all
+figure(1); clf
+vid = VideoWriter([[filename, 'simultaneous'], '.avi']);
+vid.FrameRate = 30;
+open(vid);
+itpl= round(linspace(1,length(savedtrial(end).pt), 30*savedtrial(end).trialdur));
+img = zeros(size(squeeze(savedtrial(end).maxphos(:, :, 1))));
+for k = 1:length(itpl)
+    img = zeros(size(squeeze(savedtrial(end).maxphos(:, :, 1))));
+    for ii=1:length(stim_order)
+        img = img + squeeze(savedtrial(ii).maxphos(:, :, 1))./max(savedtrial(4).resp).*savedtrial(4).resp(itpl(k));
+    end
+    p2p_c.plotretgrid(img*25, v, gray(256), 1,['';]);
+    frame = getframe(gca);
+    writeVideo(vid,frame);
+end
+close(vid)
+
 %%
 
 function [v, xy] = Beauchamp_getData()

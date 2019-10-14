@@ -10,9 +10,7 @@ classdef p2p_c
     methods(Static)
         % definitions
         function v = define_visualmap(v)
-            if ~isfield(v.e, 'ang') % position of the electode in visual co-ordinates
-                v.e.ang = 19.8; v.e.ecc = 26.6;
-            end
+           
             if ~isfield(v, 'retinaSize')    v.retinaSize = [70,70]; end%  [height, width diameter in degrees]
             if ~isfield(v,'retinaCenter')    v.retinaCenter = [0,0];  end
             
@@ -138,10 +136,10 @@ classdef p2p_c
             end
             tp.dt = .001 * 10^-3; % time sampling in ms, should be no larger than 1/10 of tau1
             if ~isfield(tp, 'scFac'); tp.scFac = 1; end
-            tp.tau1 =.012 * 10^-3;% 5.0000e-05; % %4.0000e-05; %Fitting Brindley; %Tehovnik et al 2004
-       %     tp.tau2_ca = 45.250* 10^-3;  %38-57, from retina
+            if ~isfield(tp, 'tau1')
+                tp.tau1 =.012 * 10^-3;
+            end% fit based on Brindley, 1968, Tehovnk 2004 estimates 0.13-0.24 ms
             tp.tau3 =  26.250* 10^-3; % 24-33 from retina
-        %    tp.e = 8.73; % from retina
             
             % leak out of charge accumulation
          %   tp.flag_cl=0; % 1 if you want to charge to leak back out of the system
@@ -293,7 +291,7 @@ classdef p2p_c
                 c.e(idx(ii)).ef = pt_ef;
             end
         end
-        function [c] = generate_corticalresponse(c, v)
+        function [c,v] = generate_corticalresponse(c, v)
             % generates the sum of weighted receptive fields activated by an electrode
             % normalized so the max is 1
             v.e.rfmap_noRF = zeros(size(v.X)); % percept based on electric field
@@ -326,13 +324,13 @@ classdef p2p_c
             % normalized so the max is 1
             idx = 1:length(v.e);
             for ii = 1:length(idx)
+                  disp([num2str(round((100*ii)/length(idx))),  '% electrodes complete' ]);
+                 
+                    
                 rfmap_noRF = zeros(size(v.X)); % percept based on electric field
                 rfmap = zeros([size(v.X), 2]); % percept that includes a cortical model
                 
                 for pixNum = 1:length(c.X(:))
-                    if mod(pixNum, 12000)==0
-                        disp([num2str(round((100*pixNum)/length(c.X(:)))),  '% complete' ]);
-                    end
                     if c.e(idx(ii)).ef(pixNum) > c.efthr
                         x0 = c.v2c.X(pixNum); % x center
                         y0 = c.v2c.Y(pixNum); % y center
@@ -367,7 +365,7 @@ classdef p2p_c
                 v.e(idx(ii)).rfmap = rfmap./max(rfmap(:));
             end
         end
-        function trl = generate_phosphene(v, tp, trl)
+        function [trl,v] = generate_phosphene(v, tp, trl)
             
             % calculate the neural response over time for each trial
             if ~isnan(trl.freq)
