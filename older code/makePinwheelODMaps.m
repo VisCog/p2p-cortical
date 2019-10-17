@@ -10,6 +10,7 @@ if ~exist('sig','var')
     sig = .5; % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex.
 end
 if ~exist('ODsize','var')
+    
     ODsize = 0.863; % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex.
 end
 

@@ -1,63 +1,65 @@
 % Brindley_Lewin_1968
-clear all
-addpath(genpath('C:\Users\Ione Fine\Documents\code\UWToolbox\UWToolbox\'));
-rng(1)
-c.efthr = 0.05;
-v.drawthr = .015;
-tp.scFac = 1; % this scales the Brindley numbers so that with similar pulse parameter
-% you get similar thresholds
+% Simulates chronaxie (strength-duration) data from Brindley and Lewin
+% Table 1
 
-% electrode is square but we are ignoring this since we're just looking at
+clear all
+PARALLEL = 0;
+
+c.efthr = 0.05; % lower limit of electrical stimulation for which the phosphene is calculated
+v.drawthr = .015; % visibility threshold
+tp.scFac = 1; % overall scaling factor for stimulation strength
+% electrode is square but we are ignoring space since we're just looking at
 % threshold data
 
-tp.model = 'normcdf';
-
-
-%% plot chronaxie data
-
 brindley = Brindley_getData('chronaxie');
-brindley =brindley([1:end]);
-tp.tau1 = .024 * 10^-3;
+tp.tau1 = 0.012* 10^-3; % this was manually fitted to the Brindley data
 tp = p2p_c.define_temporalparameters(tp);
-for pp=1:length(brindley)
-    disp(['finding threshold for trial ', num2str(pp), ' out of ', num2str(length(brindley))]);
-    trl = brindley(pp);
-    trl = p2p_c.define_trial(tp,trl);
-    %trl.amp = 50; trl = p2p_c.p2p_finite_element(tp, trl); % to just plot
-    %curve for a fixed tau
-    trl = findthreshold(trl, tp, .015);
-    brindley(pp).resp_max = max(trl.R2(:));
-    brindley(pp).fitted_amp = trl.amp;
+trl = [];
+numCores = 0;
+
+if PARALLEL
+    numCores = feature('numcores');
+    p = parpool(numCores);
 end
+
+trl.pw = 1000;
+ trl = p2p_c.define_trial(tp)
+trl = p2p_c.p2p_finite_element(tp, trl);
+   
+%parfor (tt=1:length(brindley), numCores * PARALLEL)
+   for tt=1
+    disp(['finding threshold for trial ', num2str(tt), ' out of ', num2str(length(brindley))]);
+    trl = p2p_c.define_trial(tp,brindley(tt));
+    trl = findthreshold(trl, tp, v.drawthr);
+    tmp(tt).fitted_amp = trl.amp;
+end
+
 figure(1); clf
 plot(cat(1, brindley(:).pw), cat(1, brindley(:).amp), 'k-o', 'MarkerFaceColor', 'k'); hold on
-plot(cat(1, brindley(:).pw), cat(1, brindley(:).fitted_amp)/23, 'r-s','MarkerFaceColor', 'r'); 
-
+plot(cat(1, brindley(:).pw), cat(1, tmp(:).fitted_amp)/23, 'r-s','MarkerFaceColor', 'r');
 
 function trl = findthreshold(trl, tp, thr)
+tol = 0.001;
 lo = 1; hi = 20000;
-
 for i=1:10
-    
     mid = (hi+lo)/2;
     trl.amp = mid;
     trl = p2p_c.define_trial(tp,trl);
     trl = p2p_c.p2p_finite_element(tp, trl);
-
+    
     if max(trl.resp(:)) > thr
         hi = mid;
     else
         lo = mid;
     end
-    if abs(max(trl.resp(:))-thr)<0.0001
+    if abs(max(trl.resp(:))-thr) < tol % close enough
         i=1000;
     end
     disp(['amp = ', num2str(trl.amp), ' ', '/ resp = ', num2str(max(trl.resp(:)))]);
 end
 trl.amp = (hi+lo)/2;
-
 end
-        
+
 function alltrl = Brindley_getData(expname)
 
 if strcmp(expname, 'chronaxie')

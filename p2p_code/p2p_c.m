@@ -10,7 +10,7 @@ classdef p2p_c
     methods(Static)
         % definitions
         function v = define_visualmap(v)
-           
+            
             if ~isfield(v, 'retinaSize')    v.retinaSize = [70,70]; end%  [height, width diameter in degrees]
             if ~isfield(v,'retinaCenter')    v.retinaCenter = [0,0];  end
             
@@ -72,6 +72,9 @@ classdef p2p_c
             if strcmp(c.animal, 'human')
                 c.ODsize = 0.863; % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex, average width of a column in mm
                 c.filtSz = 3; % 3mm creates the initial OD and orientation maps
+            else
+                c.ODsize = 0.531; % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex, average width of a column in mm
+                c.filtSz = 3; % 3mm creates the initial OD and orientation maps
             end
             
             % define the size and resolution of cortical and visual space parameters
@@ -94,7 +97,7 @@ classdef p2p_c
         function c = define_electrodes(c, v)
             %  takes in the position of the electrode in visual co-ordinates
             idx = 1:length(v.e);
-                
+            
             if ~isfield(c.e, 'radius')
                 for ii=1:length(idx)
                     c.e(idx(ii)).radius = 500/1000;
@@ -142,8 +145,8 @@ classdef p2p_c
             tp.tau3 =  26.250* 10^-3; % 24-33 from retina
             
             % leak out of charge accumulation
-         %   tp.flag_cl=0; % 1 if you want to charge to leak back out of the system
-         %   tp.tau2_cl = tp.tau2_ca * 8; % used for the conv model, fe uses p.tau2_ca
+            %   tp.flag_cl=0; % 1 if you want to charge to leak back out of the system
+            %   tp.tau2_cl = tp.tau2_ca * 8; % used for the conv model, fe uses p.tau2_ca
             
             % nonlinearity parameters
             if ~isfield(tp, 'model');  tp.model = 'normcdf'; end
@@ -201,7 +204,7 @@ classdef p2p_c
                 if ~isfield(trl, 'dur');    trl.dur =  50*10^-3;   end% duration in ms
                 if ~isfield(trl, 'freq');   trl.freq = 200;        end %NaN if not using a temporal model
                 if ~isfield(trl, 'trialdur'); trl.trialdur = 1.7;  end % allows filler at end of trial
-                trl.t = 0:tp.dt:trl.dur-tp.dt;    
+                trl.t = 0:tp.dt:trl.dur-tp.dt;
             end
             
             if ~isfield(trl, 'dur');    trl.dur = 1000*10^-3;   end% duration in ms
@@ -272,8 +275,8 @@ classdef p2p_c
             % are on the surface
             %
             % max electric field is normalized to 1
-           idx = 1:length(c.e);
-
+            idx = 1:length(c.e);
+            
             if ~isfield(c, 'emodel')
                 c.emodel = 'Tehovnik';
                 I0 = 1;
@@ -324,9 +327,9 @@ classdef p2p_c
             % normalized so the max is 1
             idx = 1:length(v.e);
             for ii = 1:length(idx)
-                  disp([num2str(round((100*ii)/length(idx))),  '% electrodes complete' ]);
-                 
-                    
+                disp([num2str(round((100*ii)/length(idx))),  '% electrodes complete' ]);
+                
+                
                 rfmap_noRF = zeros(size(v.X)); % percept based on electric field
                 rfmap = zeros([size(v.X), 2]); % percept that includes a cortical model
                 
@@ -580,7 +583,20 @@ classdef p2p_c
         end
         
         % plotting functions
-        function plotcortgrid(img, c,  cmap,figNum, spstr)
+        function plotcortgrid(img, c,  varargin)
+        % plotcortgrid(img, c)
+        % plotcortgrid(img, c, cmap,figNum, evalstr)
+        % takes as input:
+        %   cortical image
+        %   the structure c that defines the cortical surface
+        % optional arguments: 
+        %   colormap, figure number and a string to evaluate
+        %  (e.g. ''title('''corticalsurface''')' or 'subplot(1, 2,1)';
+            
+            if nargin<3 || isempty(varargin{1});  cmap = gray(256);   else cmap = varargin{1}; end
+            if nargin<4 || isempty(varargin{2}); figNum = 1;        else figNum = varargin{2}; end
+            if nargin<5 || isempty(varargin{3});  evalstr = '';      else evalstr = varargin{3}; end
+            
             
             if isfield(c,'cropPix')
                 img(c.cropPix) = NaN;
@@ -589,7 +605,7 @@ classdef p2p_c
             end
             
             fH=figure(figNum);
-            eval(spstr); colormap(cmap);
+            eval(evalstr); colormap(cmap);
             if ~isempty(img)
                 image(c.x, c.y, img); hold on
             end
@@ -603,10 +619,23 @@ classdef p2p_c
             set(gca,'YLim',[min(c.y(:)),max(c.y(:))]);
             drawnow;
         end
-        function plotretgrid(img, v, cmap, figNum, spstr)
+        function plotretgrid(img, v, varargin)
+        % plotretgrid(img, c)
+        % plotretgrid(img, c, cmap,figNum, evalstr)
+        % takes as input:
+        %   retinal image
+        %   the structure v that defines the retinal surface
+        % optional arguments: 
+        %   colormap, figure number and a string to evaluate
+        %  (e.g. ''title('''corticalsurface''')' or 'subplot(1, 2,1)';
+
+            if nargin<3 || isempty(varargin{1});  cmap = gray(256);   else cmap = varargin{1}; end
+            if nargin<4 || isempty(varargin{2});  figNum = 1;        else figNum = varargin{2}; end
+            if nargin<5 || isempty(varargin{3});  evalstr = '';      else evalstr = varargin{3}; end
             
+        
             fH=figure(figNum); hold on
-            eval(spstr);
+            eval(evalstr);
             image(v.x, v.y, img); hold on
             
             colormap(cmap); set(gca,'YDir','normal');
