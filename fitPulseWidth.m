@@ -1,15 +1,8 @@
 
 %% fitPulseWidth.m
 %
-% Fits a collection of temporal psychophysics data
+% Fits Pulse Width Data
 %
-% clear trl
-% trl.amp = 1000; trl.pw = 1000* 10.^-6;
-% trl.freq =  50; trl.dur =  0.5000;
-
-% find the sensitivity scale factor so a 'standard pulse'
-% has a resp of 1
-% with a current input of 1000
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -49,14 +42,16 @@ xlabel('pulse width');
 ylabel('threshold')
 
 %% model pw
-tp = p2p_c.define_temporalparameters();
-tp.tau1 = 8.899999999999999e-05;
 tp.model = 'simpleleakyintegrator';
+tp.tau1 = 8.899999999999999e-05;
+tp.scaleR1 = 1; tp.scaleR4 = 1;
+tp = p2p_c.define_temporalparameters(tp);
+
 trl.freq = 50;
 trl.dur = 1000*10^-3;
 trl.pw = 1000* 10.^-6;
 trl.amp = 1;
-tp.scaleAmp = 1;
+
 trl = p2p_c.define_trial(tp,trl);
 trl = p2p_c.finite_element(tp, trl);
 tp.scaleAmp = 1;
