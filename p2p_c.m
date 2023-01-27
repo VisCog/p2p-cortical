@@ -424,6 +424,7 @@ classdef p2p_c
 
                 % separate 'scFac' for each experiment
                 tp.scFacInd = 1;
+
                 if isfield(tp,'experimentList')  % set tp_thresh accordingly for this trial
                     experimentNum = find(strcmp(T.experiment{i},tp.experimentList));
                     if ~isempty(experimentNum)  % set thresh_resp for this experiment.
@@ -432,321 +433,322 @@ classdef p2p_c
                 end
                 thresh(i)= p2p_c.find_threshold(trl,tp);
             end
-        end
 
-        err = nansum((thresh-T.amp').^2);
-        disp(sprintf('tau1 = %g, tau2 = %g, power = %5.2f err= %5.4f',...
-            tp.tau1,tp.tau2,tp.power,err));
+            err = nansum((thresh-T.amp').^2);
+            disp(sprintf('tau1 = %g, tau2 = %g, power = %5.2f err= %5.4f',...
+                tp.tau1,tp.tau2,tp.power,err));
 
-        if isfield(tp,'experimentList')
-            for i = 1:length(tp.experimentList)
-                disp(sprintf('%10s: %g',tp.experimentList{i},tp.scFac(i)));
+            if isfield(tp,'experimentList')
+                for i = 1:length(tp.experimentList)
+                    disp(sprintf('%10s: %g',tp.experimentList{i},tp.scFac(i)));
+                end
             end
         end
 
-    function amp = find_threshold(trl, tp,nReps)
-        % Find amplitudes at threshold with the convolve model.
-        % takes in trial, tp, and optional fitParams
-        % finds and returns the trl.amp for which the max output of the
-        % model for that trial, trial.resp, is equal to fitParams.thr
+        function amp = find_threshold(trl, tp,nReps)
+            % Find amplitudes at threshold with the convolve model.
+            % takes in trial, tp, and optional fitParams
+            % finds and returns the trl.amp for which the max output of the
+            % model for that trial, trial.resp, is equal to fitParams.thr
 
-        if ~exist('nReps','var')
-            nReps = 12;
-        end
-        % first find the lowest 'hi' response
-        hi = 1;
-        resp = 0;
-        while resp<tp.thresh_resp
-            hi = hi*2;
-            trl.amp = hi;
-            trl = p2p_c.define_trial(tp,trl);
-            trl = p2p_c.convolve_model(tp, trl);
-            resp = max(trl.resp);
-        end
-        lo = hi/2;
-        % then do the binary search
-        for i = 1:nReps
-            trl.amp  = (hi+lo)/2;
-            trl = p2p_c.define_trial(tp,trl);
-            trl = p2p_c.convolve_model(tp, trl);
+            if ~exist('nReps','var')
+                nReps = 12;
+            end
+            % first find the lowest 'hi' response
+            hi = 1;
+            resp = 0;
+            while resp<tp.thresh_resp
+                hi = hi*2;
+                trl.amp = hi;
+                trl = p2p_c.define_trial(tp,trl);
+                trl = p2p_c.convolve_model(tp, trl);
+                resp = max(trl.resp);
+            end
+            lo = hi/2;
+            % then do the binary search
+            for i = 1:nReps
+                trl.amp  = (hi+lo)/2;
+                trl = p2p_c.define_trial(tp,trl);
+                trl = p2p_c.convolve_model(tp, trl);
 
-            if max(trl.resp(:)) > tp.thresh_resp
-                hi = trl.amp;
+                if max(trl.resp(:)) > tp.thresh_resp
+                    hi = trl.amp;
+                else
+                    lo = trl.amp;
+                end
+            end
+            amp = (hi+lo)/2;
+        end
+        function trl = convolve_model(tp, trl)
+            % Implements 'finite_element' using the closed-form solution to
+            % the respose to a pluse   Can be faster than 'finite_element'.
+            % Assumes square pulse trains.
+            %
+            % tSamp is the temporal sub-sampling factor. Since tau2 is
+            % relatively long, we can get away with a coarser temporal
+            % sampling for the last convolution stage.  tSamp of 1000 works
+            % well. Advise comparing to tSamp = 1 to check for innacuracy.
+            % Also advise comparing 'convolve_model' to 'finite_element'
+            % model which should be consiered the ground truth.
+            %
+            % Note: model only returns 'R3', 'spike' and 'resp' as output.
+            % R1 and R2 (rectified R1) timecourses are not generated, so
+            % the R2 of 'simpleleakyintegrator' has to obtained through the
+            % 'finite_element' function.
+            %
+            % 'tt' is also returned, which is the temporally subsampled 't'
+            % vector. Good for plotting 'spike' and 'resp'.
+
+            % written GMB 6/17/2022
+
+            % Assume the pulse train, pt, is a sequence of discrete jumps
+            % in current. Find the 'events' where the pulse train, pt,
+            % jumps up or down.
+            ptid = find(diff(trl.pt))+1;
+
+            % R will hold the values of R1 at the event times.
+            R = zeros(1,length(ptid));
+
+            wasRising = 0;
+            R(1) = 0;
+
+            % Loop through the events, calculating R1 at the end of the event
+            % and add impulse responses when R1 peaks and is after the refractory period.
+            spikeId = zeros(size(R));
+            lastSpikeTime = -1;  % Keep track of time of last spike for refractory period.  Start 'fresh'
+            for i=1:(length(ptid)-1)
+                tNow = trl.t(ptid(i+1));
+                delta = trl.t(ptid(i+1))-trl.t(ptid(i));  % time since last 'event'
+                % Closed form solution to leaky integrator that predicts
+                % R(i+1) from R(i), delta and tau1:
+                R(i+1) = trl.pt(ptid(i))*tp.tau1*(1-exp(-delta/tp.tau1)) +...
+                    R(i)*exp(-delta/tp.tau1);
+                % Add a spike if:
+                % (1) R1 is going down since last event
+                % (2) R1 was going up before that, and
+                % (3) we're past the refractory period since the last spike
+                if R(i+1)<R(i) && wasRising &&  trl.t(ptid(i+1))-lastSpikeTime > tp.refractoryPeriod
+                    spikeId(i) = 1;
+                    wasRising = 0;  % no longer rising
+                    lastSpikeTime = trl.t(ptid(i+1));
+                else
+                    wasRising =1;
+                end
+            end
+
+            % Since spikes are sparse, manually convolve the 'spikes' with
+            % the impulse response function.
+
+            % down-sample the time-vectors
+            if ~isfield(tp,'tSamp')
+                tp.tSamp = 1;
+                disp('Using tSamp = 1');
+            end
+            t = trl.t(1:tp.tSamp:end);
+            dt = t(2)-t(1);
+            % Generate the n-cascade impulse response
+            h = p2p_c.gamma(tp.ncascades,tp.tau2,t);
+            % Shorten the filter if needed to speed up the code.
+            tid = find(cumsum(h)*dt>.999,1,'first');
+            if ~isempty(tid)
+                h = h(1:tid);
             else
-                lo = trl.amp;
+                sprintf('Warning: gamma hdr might not have a long enough time vector');
+            end
+
+            imp_resp = h;  % close enough to use h
+
+            impFrames = [0:(length(imp_resp)-1)];
+            % zero stuff out
+            % spikeFrames = [1:round(tp.spikeDur/(tp.dt*tp.tSamp))];
+            resp = zeros(1,length(t)+length(imp_resp));
+            for i=1:length(R)
+                if spikeId(i)
+                    id = find(t>trl.t(ptid(i)),1,'first');
+                    resp(id+impFrames)  =   ...
+                        resp(id+impFrames) + p2p_c.nonlinearity(tp,R(i))*imp_resp;
+                end
+            end
+
+            % save the time-course of the response for output
+            trl.resp = resp(1:length(t));
+            trl.tt = t;  % for plotting
+        end
+
+        %% utilities
+        function y=gamma(n,k,t)
+            %   y=gamma(n,k,t)
+            %   returns a gamma function on vector t
+            %   y=(t/k).^(n-1).*exp(-t/k)/(k*factorial(n-1));
+            %   which is the result of an n stage leaky integrator.
+
+            %   6/27/95 Written by G.M. Boynton at Stanford University
+            %   4/19/09 Simplified it for Psychology 448/538 at U.W.
+            %
+            y = (t/k).^(n-1).*exp(-t/k)/(k*factorial(n-1));
+            y(t<0) = 0;
+        end
+        function y = nonlinearity(tp,x)
+            if isfield(tp, 'scFacInd');    scFac = tp.scFac(tp.scFacInd);
+            else scFac  =  tp.scFac(1); end
+            % some of our favorite static nonlinearities:
+            switch tp.model
+                case 'sigmoid'
+                    y = scFac .* x.^tp.power./(x.^tp.power + tp.sigma.^2);
+                case 'normcdf'
+                    y = scFac*(normcdf(x, tp.mean, tp.sigma)*2-1);
+                    y(y<0) = 0;
+                case 'weibull'
+                    y = scFac*p2p_c.weibull(tp,x);
+                case 'power'
+                    y = scFac*x.^tp.power;
+                case 'exp'
+                    y = scFac*x.^tp.k;
+                case 'linear'
+                    y = x;
             end
         end
-        amp = (hi+lo)/2;
-    end
-    function trl = convolve_model(tp, trl)
-        % Implements 'finite_element' using the closed-form solution to
-        % the respose to a pluse   Can be faster than 'finite_element'.
-        % Assumes square pulse trains.
-        %
-        % tSamp is the temporal sub-sampling factor. Since tau2 is
-        % relatively long, we can get away with a coarser temporal
-        % sampling for the last convolution stage.  tSamp of 1000 works
-        % well. Advise comparing to tSamp = 1 to check for innacuracy.
-        % Also advise comparing 'convolve_model' to 'finite_element'
-        % model which should be consiered the ground truth.
-        %
-        % Note: model only returns 'R3', 'spike' and 'resp' as output.
-        % R1 and R2 (rectified R1) timecourses are not generated, so
-        % the R2 of 'simpleleakyintegrator' has to obtained through the
-        % 'finite_element' function.
-        %
-        % 'tt' is also returned, which is the temporally subsampled 't'
-        % vector. Good for plotting 'spike' and 'resp'.
+        function [p] = weibull(params, x)
+            % [p] = Weibull(params, x)
+            %
+            % The Weibull function based on this equation:
+            %
+            % k = (-log((1-e)/(1-g)))^(1/b)
+            % f(x) = 1 - ((1-g) * exp(-(k*x/t).^b))
+            %
+            % Where g is performance expected at chance, e is performance level that
+            % defines the threshold, b is the slope of the Weibull function, and t is
+            % the threshold
+            %
+            % Inputs:
+            %   params      A structure containing the parameters of the Weibull
+            %               function:
+            %       b       Slope
+            %       t       Stimulus intensity threshold as defined by 'params.e'.
+            %               When x = 'params.t', then y = 'params.e'
+            %       g       Performance expected at chance, proportion
+            %       e       Threshold performance, proportion
+            %
+            %   x           Intensity values of the stimuli
+            %
+            % Output:
+            %   p           Output of the Weibull function as a function of the
+            %               intensity values, x
 
-        % written GMB 6/17/2022
+            % Written by G.M. Boynton - 11/13/2007
+            % Edited by Kelly Chang - February 13, 2017
+            % Edited by Ione Fine - February 22, 2017
 
-        % Assume the pulse train, pt, is a sequence of discrete jumps
-        % in current. Find the 'events' where the pulse train, pt,
-        % jumps up or down.
-        ptid = find(diff(trl.pt))+1;
+            if ~isfield(params, 'g')
+                params.g = 0.5;
+            end
+            if ~isfield(params, 'e')
+                params.e = (0.5)^(1/3);
+            end
 
-        % R will hold the values of R1 at the event times.
-        R = zeros(1,length(ptid));
+            k = (-log((1-params.e)/(1-params.g)))^(1/params.b);
+            p = 1 - ((1-params.g) * exp(-(k*x/params.t).^params.b));
+        end
 
-        wasRising = 0;
-        R(1) = 0;
+        %% transforms
+        % transforms
+        function c2v_out = c2v(c, z)
+            % takes in imaginary numbers, and finds out where cortical values are in visual space (map)
+            c2v_out = c.k*log(z + c.a);
+        end
+        function v2c_out = v2c(c, z)
+            % takes in imaginary numbers, places visual values into the cortical grid (mapinv)
+            v2c_out = exp(z/c.k)-c.a;
+        end
 
-        % Loop through the events, calculating R1 at the end of the event
-        % and add impulse responses when R1 peaks and is after the refractory period.
-        spikeId = zeros(size(R));
-        lastSpikeTime = -1;  % Keep track of time of last spike for refractory period.  Start 'fresh'
-        for i=1:(length(ptid)-1)
-            tNow = trl.t(ptid(i+1));
-            delta = trl.t(ptid(i+1))-trl.t(ptid(i));  % time since last 'event'
-            % Closed form solution to leaky integrator that predicts
-            % R(i+1) from R(i), delta and tau1:
-            R(i+1) = trl.pt(ptid(i))*tp.tau1*(1-exp(-delta/tp.tau1)) +...
-                R(i)*exp(-delta/tp.tau1);
-            % Add a spike if:
-            % (1) R1 is going down since last event
-            % (2) R1 was going up before that, and
-            % (3) we're past the refractory period since the last spike
-            if R(i+1)<R(i) && wasRising &&  trl.t(ptid(i+1))-lastSpikeTime > tp.refractoryPeriod
-                spikeId(i) = 1;
-                wasRising = 0;  % no longer rising
-                lastSpikeTime = trl.t(ptid(i+1));
-            else
-                wasRising =1;
+        %% plotting functions
+        % plotting functions
+        function plotcortgrid(img, c,  varargin)
+            % plotcortgrid(img, c)
+            % plotcortgrid(img, c, cmap,figNum, evalstr)
+            % takes as input:
+            %   cortical image
+            %   the structure c that defines the cortical surface
+            % optional arguments:
+            %   colormap, figure number and a string to evaluate
+            %  (e.g. ''title('''corticalsurface''')' or 'subplot(1, 2,1)';
+
+            if nargin<3 || isempty(varargin{1});  cmap = gray(256);   else cmap = varargin{1}; end
+            if nargin<4 || isempty(varargin{2}); figNum = 1;        else figNum = varargin{2}; end
+            if nargin<5 || isempty(varargin{3});  evalstr = '';      else evalstr = varargin{3}; end
+
+            if isfield(c,'cropPix')
+                img(c.cropPix) = NaN;
+                img= img+2;
+                cmap = [0,0,0;cmap];
+            end
+
+            fH=figure(figNum);
+            eval(evalstr); colormap(cmap);
+            if ~isempty(img)
+                image(c.x, c.y, img); hold on
+            end
+            xlabel('mm'); ylabel('mm')
+            set(gca,'YDir','normal');
+            plot(c.v2c.gridAngZ, '-', 'Color', c.gridColor);
+            plot(c.v2c.gridEccZ, '-', 'Color', c.gridColor);
+
+            axis equal;  axis tight
+            set(gca,'XLim',[min(c.x(:)),max(c.x(:))]);
+            set(gca,'YLim',[min(c.y(:)),max(c.y(:))]);
+            drawnow;
+        end
+        function plotretgrid(img, v, varargin)
+            % plotretgrid(img, c)
+            % plotretgrid(img, c, cmap,figNum, evalstr)
+            % takes as input:
+            %   retinal image
+            %   the structure v that defines the retinal surface
+            % optional arguments:
+            %   colormap, figure number and a string to evaluate
+            %  (e.g. ''title('''corticalsurface''')' or 'subplot(1, 2,1)';
+
+            if nargin<3 || isempty(varargin{1});  cmap = gray(256);   else cmap = varargin{1}; end
+            if nargin<4 || isempty(varargin{2});  figNum = 1;        else figNum = varargin{2}; end
+            if nargin<5 || isempty(varargin{3});  evalstr = '';      else evalstr = varargin{3}; end
+
+            fH=figure(figNum); hold on
+            eval(evalstr);
+            image(v.x, v.y, img); hold on
+
+            colormap(cmap); set(gca,'YDir','normal');
+
+            plot(v.zAng,'-','Color', v.gridColor); plot(v.zEcc,'-','Color', v.gridColor);
+            plot(-v.zAng,'-','Color', v.gridColor); plot(-v.zEcc,'-','Color', v.gridColor);
+
+            axis equal;  axis tight
+            xlabel('degrees'); ylabel('degrees')
+            set(gca,'XLim',[min(v.x(:)),max(v.x(:))]);
+            set(gca,'YLim',[min(v.y(:)),max(v.y(:))]);
+            drawnow;
+        end
+        function p = fit_ellipse_to_phosphene(img,v)
+            M00 = sum(sum(img));
+            M10 = sum(sum(v.X.*img));           M01 = sum(sum(v.Y.*img));         M11 = sum(sum(v.X.*v.Y.*img));
+            M20 = sum(sum(v.X.^2.*img));          M02 = sum(sum(v.Y.^2.*img));
+            p.x0 = M10/M00;         p.y0 = M01/M00;
+            mu20 = M20/M00 - p.x0^2;      mu02 = M02/M00 - p.y0^2;             mu11 = M11/M00 - p.x0*p.y0;
+            a = (mu20+mu02)/2;         b = .5*sqrt(4*mu11^2+(mu20-mu02)^2);
+            lambda_1 = a+b;      lambda_2 = a-b;
+            p.theta = -.5*atan2(2*mu11,mu20-mu02);
+            p.sigma_x = 2*sqrt(lambda_1);        p.sigma_y = 2*sqrt(lambda_2);
+        end
+        function fillSymbols(h,colList)
+            if ~exist('h');     h = get(gca,'Children');    end
+            for i=1:length(h)
+                if ~exist('colList','var');       col = get(h(i),'Color');
+                else
+                    if iscell(colList)      col = colList{i};
+                    else;     col = colList(i,:);  end
+                end
+                set(h(i),'MarkerFaceColor',col);
             end
         end
 
-        % Since spikes are sparse, manually convolve the 'spikes' with
-        % the impulse response function.
-
-        % down-sample the time-vectors
-        if ~isfield(tp,'tSamp')
-            tp.tSamp = 1;
-            disp('Using tSamp = 1');
-        end
-        t = trl.t(1:tp.tSamp:end);
-        dt = t(2)-t(1);
-        % Generate the n-cascade impulse response
-        h = p2p_c.gamma(tp.ncascades,tp.tau2,t);
-        % Shorten the filter if needed to speed up the code.
-        tid = find(cumsum(h)*dt>.999,1,'first');
-        if ~isempty(tid)
-            h = h(1:tid);
-        else
-            sprintf('Warning: gamma hdr might not have a long enough time vector');
-        end
-
-        imp_resp = h;  % close enough to use h
-
-        impFrames = [0:(length(imp_resp)-1)];
-        % zero stuff out
-        % spikeFrames = [1:round(tp.spikeDur/(tp.dt*tp.tSamp))];
-        resp = zeros(1,length(t)+length(imp_resp));
-        for i=1:length(R)
-            if spikeId(i)
-                id = find(t>trl.t(ptid(i)),1,'first');
-                resp(id+impFrames)  =   ...
-                    resp(id+impFrames) + p2p_c.nonlinearity(tp,R(i))*imp_resp;
-            end
-        end
-
-        % save the time-course of the response for output
-        trl.resp = resp(1:length(t));
-        trl.tt = t;  % for plotting
     end
-
-    %% utilities
-    function y=gamma(n,k,t)
-        %   y=gamma(n,k,t)
-        %   returns a gamma function on vector t
-        %   y=(t/k).^(n-1).*exp(-t/k)/(k*factorial(n-1));
-        %   which is the result of an n stage leaky integrator.
-
-        %   6/27/95 Written by G.M. Boynton at Stanford University
-        %   4/19/09 Simplified it for Psychology 448/538 at U.W.
-        %
-        y = (t/k).^(n-1).*exp(-t/k)/(k*factorial(n-1));
-        y(t<0) = 0;
-    end
-    function y = nonlinearity(tp,x)
-        scFac = tp.scFac(tp.scFacInd);
-        % some of our favorite static nonlinearities:
-        switch tp.model
-            case 'sigmoid'
-                y = scFac .* x.^tp.power./(x.^tp.power + tp.sigma.^2);
-            case 'normcdf'
-                y = scFac*(normcdf(x, tp.mean, tp.sigma)*2-1);
-                y(y<0) = 0;
-            case 'weibull'
-                y = scFac*p2p_c.weibull(tp,x);
-            case 'power'
-                y = scFac*x.^tp.power;
-            case 'exp'
-                y = scFac*x.^tp.k;
-            case 'linear'
-                y = x;
-        end
-    end
-    function [p] = weibull(params, x)
-        % [p] = Weibull(params, x)
-        %
-        % The Weibull function based on this equation:
-        %
-        % k = (-log((1-e)/(1-g)))^(1/b)
-        % f(x) = 1 - ((1-g) * exp(-(k*x/t).^b))
-        %
-        % Where g is performance expected at chance, e is performance level that
-        % defines the threshold, b is the slope of the Weibull function, and t is
-        % the threshold
-        %
-        % Inputs:
-        %   params      A structure containing the parameters of the Weibull
-        %               function:
-        %       b       Slope
-        %       t       Stimulus intensity threshold as defined by 'params.e'.
-        %               When x = 'params.t', then y = 'params.e'
-        %       g       Performance expected at chance, proportion
-        %       e       Threshold performance, proportion
-        %
-        %   x           Intensity values of the stimuli
-        %
-        % Output:
-        %   p           Output of the Weibull function as a function of the
-        %               intensity values, x
-
-        % Written by G.M. Boynton - 11/13/2007
-        % Edited by Kelly Chang - February 13, 2017
-        % Edited by Ione Fine - February 22, 2017
-
-        if ~isfield(params, 'g')
-            params.g = 0.5;
-        end
-        if ~isfield(params, 'e')
-            params.e = (0.5)^(1/3);
-        end
-
-        k = (-log((1-params.e)/(1-params.g)))^(1/params.b);
-        p = 1 - ((1-params.g) * exp(-(k*x/params.t).^params.b));
-    end
-
-    %% transforms
-    % transforms
-    function c2v_out = c2v(c, z)
-        % takes in imaginary numbers, and finds out where cortical values are in visual space (map)
-        c2v_out = c.k*log(z + c.a);
-    end
-    function v2c_out = v2c(c, z)
-        % takes in imaginary numbers, places visual values into the cortical grid (mapinv)
-        v2c_out = exp(z/c.k)-c.a;
-    end
-
-    %% plotting functions
-    % plotting functions
-    function plotcortgrid(img, c,  varargin)
-        % plotcortgrid(img, c)
-        % plotcortgrid(img, c, cmap,figNum, evalstr)
-        % takes as input:
-        %   cortical image
-        %   the structure c that defines the cortical surface
-        % optional arguments:
-        %   colormap, figure number and a string to evaluate
-        %  (e.g. ''title('''corticalsurface''')' or 'subplot(1, 2,1)';
-
-        if nargin<3 || isempty(varargin{1});  cmap = gray(256);   else cmap = varargin{1}; end
-        if nargin<4 || isempty(varargin{2}); figNum = 1;        else figNum = varargin{2}; end
-        if nargin<5 || isempty(varargin{3});  evalstr = '';      else evalstr = varargin{3}; end
-
-        if isfield(c,'cropPix')
-            img(c.cropPix) = NaN;
-            img= img+2;
-            cmap = [0,0,0;cmap];
-        end
-
-        fH=figure(figNum);
-        eval(evalstr); colormap(cmap);
-        if ~isempty(img)
-            image(c.x, c.y, img); hold on
-        end
-        xlabel('mm'); ylabel('mm')
-        set(gca,'YDir','normal');
-        plot(c.v2c.gridAngZ, '-', 'Color', c.gridColor);
-        plot(c.v2c.gridEccZ, '-', 'Color', c.gridColor);
-
-        axis equal;  axis tight
-        set(gca,'XLim',[min(c.x(:)),max(c.x(:))]);
-        set(gca,'YLim',[min(c.y(:)),max(c.y(:))]);
-        drawnow;
-    end
-    function plotretgrid(img, v, varargin)
-        % plotretgrid(img, c)
-        % plotretgrid(img, c, cmap,figNum, evalstr)
-        % takes as input:
-        %   retinal image
-        %   the structure v that defines the retinal surface
-        % optional arguments:
-        %   colormap, figure number and a string to evaluate
-        %  (e.g. ''title('''corticalsurface''')' or 'subplot(1, 2,1)';
-
-        if nargin<3 || isempty(varargin{1});  cmap = gray(256);   else cmap = varargin{1}; end
-        if nargin<4 || isempty(varargin{2});  figNum = 1;        else figNum = varargin{2}; end
-        if nargin<5 || isempty(varargin{3});  evalstr = '';      else evalstr = varargin{3}; end
-
-        fH=figure(figNum); hold on
-        eval(evalstr);
-        image(v.x, v.y, img); hold on
-
-        colormap(cmap); set(gca,'YDir','normal');
-
-        plot(v.zAng,'-','Color', v.gridColor); plot(v.zEcc,'-','Color', v.gridColor);
-        plot(-v.zAng,'-','Color', v.gridColor); plot(-v.zEcc,'-','Color', v.gridColor);
-
-        axis equal;  axis tight
-        xlabel('degrees'); ylabel('degrees')
-        set(gca,'XLim',[min(v.x(:)),max(v.x(:))]);
-        set(gca,'YLim',[min(v.y(:)),max(v.y(:))]);
-        drawnow;
-    end
-    function p = fit_ellipse_to_phosphene(img,v)
-        M00 = sum(sum(img));
-        M10 = sum(sum(v.X.*img));           M01 = sum(sum(v.Y.*img));         M11 = sum(sum(v.X.*v.Y.*img));
-        M20 = sum(sum(v.X.^2.*img));          M02 = sum(sum(v.Y.^2.*img));
-        p.x0 = M10/M00;         p.y0 = M01/M00;
-        mu20 = M20/M00 - p.x0^2;      mu02 = M02/M00 - p.y0^2;             mu11 = M11/M00 - p.x0*p.y0;
-        a = (mu20+mu02)/2;         b = .5*sqrt(4*mu11^2+(mu20-mu02)^2);
-        lambda_1 = a+b;      lambda_2 = a-b;
-        p.theta = -.5*atan2(2*mu11,mu20-mu02);
-        p.sigma_x = 2*sqrt(lambda_1);        p.sigma_y = 2*sqrt(lambda_2);
-    end
-    function fillSymbols(h,colList)
-        if ~exist('h');     h = get(gca,'Children');    end
-        for i=1:length(h)
-            if ~exist('colList','var');       col = get(h(i),'Color');
-            else
-                if iscell(colList)      col = colList{i};
-                else;     col = colList(i,:);  end
-            end
-            set(h(i),'MarkerFaceColor',col);
-        end
-    end
-
-end
 end

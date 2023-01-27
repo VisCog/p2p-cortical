@@ -76,9 +76,9 @@ tp.model = 'power';
 tp.ncascades  = 3;
 tp.refractoryPeriod = 1/217;
 tp.thresh_resp = .0130;
-freeParams = {'scFac','tau2'};
-% tpBest = fit('p2p_c.getErrCronaxie',tp,freeParams,T);%
- %tp = tpBest;
+freeParams = {'scFac'};
+ tpBest = fit('p2p_c.getErrCronaxie',tp,freeParams,T);%
+ tp = tpBest;
 
 tic
 [err,thresh] = p2p_c.getErrCronaxie(tp,T);
