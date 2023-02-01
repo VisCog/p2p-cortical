@@ -100,7 +100,6 @@ classdef p2p_c
             end
         end
 
-
         %% cortical stuff
         function c = define_cortex(c)
             % cortical magnification,
@@ -397,7 +396,7 @@ classdef p2p_c
         end
 
         %% psychophysics
-        function [err,thresh] = getErrCronaxie(tp,T)
+        function [err, thresh] = loopall_find_threshold(tp,T)
             %
             % Runs the 'conv' model to get thresholds based on trials in the table 'T'.
             % returns the SSE and thresholds.  Table must contain fields holding the
@@ -408,23 +407,12 @@ classdef p2p_c
             % amp     amplitude at detection threshold
 
             thresh = NaN(1,size(T,1));
-            for i=1:size(T,1)
-                clear trl
+            for i=1:size(T,1)             
                 % define trial parameters based on values in the table
-                trl.pw = T.pw(i);  %sec
-                trl.amp = 1;
-                trl.dur = T.dur(i);
-                trl.freq = T.freq(i);
-                trl.simdur = 1;
-
+                clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
                 trl = p2p_c.define_trial(tp,trl);
 
-                % trl = p2p_c.finite_element(tp, trl);
-                % trl = p2p_c.convolve_model(tp, trl);
-
-                % separate 'scFac' for each experiment
-                tp.scFacInd = 1;
-
+                tp.scFacInd = 1;     % separate 'scFac' for each experiment
                 if isfield(tp,'experimentList')  % set tp_thresh accordingly for this trial
                     experimentNum = find(strcmp(T.experiment{i},tp.experimentList));
                     if ~isempty(experimentNum)  % set thresh_resp for this experiment.
@@ -434,9 +422,34 @@ classdef p2p_c
                 thresh(i)= p2p_c.find_threshold(trl,tp);
             end
 
-            err = nansum((thresh-T.amp').^2);
-            disp(sprintf('tau1 = %g, tau2 = %g, power = %5.2f err= %5.4f',...
-                tp.tau1,tp.tau2,tp.power,err));
+            err = nansum((thresh-T.amp').^2);       disp(sprintf('tau1 = %g, tau2 = %g, power = %5.2f err= %5.4f  scFac= %5.4f',  tp.tau1,tp.tau2,tp.power,err, tp.scFac));
+
+            if isfield(tp,'experimentList')
+                for i = 1:length(tp.experimentList)
+                    disp(sprintf('%10s: %g',tp.experimentList{i},tp.scFac(i)));
+                end
+            end
+        end
+        function [err, thresh] = loop_find_threshold(tp,T)
+            %
+            % Runs the 'conv' model to get thresholds based on trials in the table 'T'.
+            % returns the SSE and thresholds.  Table must contain fields holding the
+            % following parameters for each trial:
+            % pw      pulse width (sec)
+            % dur     trial duration (sec)
+            % freq    pulse frequency (Hz)
+            % amp     amplitude at detection threshold
+
+            thresh = NaN(1,size(T,1));
+            for i=1:size(T,1)             
+                % define trial parameters based on values in the table
+                clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
+                trl = p2p_c.define_trial(tp,trl);
+                thresh(i)= p2p_c.find_threshold(trl,tp);
+            end
+
+            err = nansum((thresh-T.amp').^2);       
+            disp(sprintf('tau1 = %g, tau2 = %g, power = %5.2f err= %5.4f  scFac= %5.4f',  tp.tau1,tp.tau2,tp.power,err, tp.scFac));
 
             if isfield(tp,'experimentList')
                 for i = 1:length(tp.experimentList)
@@ -445,6 +458,26 @@ classdef p2p_c
             end
         end
 
+        function [loop_trl] = loop_convolve_model(tp,T)
+            %
+            % Runs the 'conv' model to get thresholds based on trials in the table 'T'.
+            % returns the SSE and thresholds.  Table must contain fields holding the
+            % following parameters for each trial:
+            % pw      pulse width (sec)
+            % dur     trial duration (sec)
+            % freq    pulse frequency (Hz)
+            % amp     amplitude at detection threshold
+
+     
+            for i=1:size(T,1)             
+                % define trial parameters based on values in the table
+                clear trl;  trl.pw = T.pw(i);   trl.amp = T.amp(i);    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
+                trl = p2p_c.define_trial(tp,trl);
+                 loop_trl(i) = p2p_c.convolve_model(tp, trl);
+            end
+        end
+
+       
         function amp = find_threshold(trl, tp,nReps)
             % Find amplitudes at threshold with the convolve model.
             % takes in trial, tp, and optional fitParams
@@ -464,7 +497,7 @@ classdef p2p_c
                 trl = p2p_c.convolve_model(tp, trl);
                 resp = max(trl.resp);
             end
-            lo = hi/2;
+            lo = 0;
             % then do the binary search
             for i = 1:nReps
                 trl.amp  = (hi+lo)/2;
@@ -508,6 +541,7 @@ classdef p2p_c
 
             % R will hold the values of R1 at the event times.
             R = zeros(1,length(ptid));
+            rP = 1./(tp.refractoryPeriod(1) + randi(tp.refractoryPeriod(2)-tp.refractoryPeriod(1), [1,length(ptid)]));
 
             wasRising = 0;
             R(1) = 0;
@@ -521,13 +555,14 @@ classdef p2p_c
                 delta = trl.t(ptid(i+1))-trl.t(ptid(i));  % time since last 'event'
                 % Closed form solution to leaky integrator that predicts
                 % R(i+1) from R(i), delta and tau1:
-                R(i+1) = trl.pt(ptid(i))*tp.tau1*(1-exp(-delta/tp.tau1)) +...
+                R(i+1) = trl.pt(ptid(i))*tp.tau1*(1-exp(-delta/tp.tau1)) + ...
                     R(i)*exp(-delta/tp.tau1);
                 % Add a spike if:
                 % (1) R1 is going down since last event
                 % (2) R1 was going up before that, and
                 % (3) we're past the refractory period since the last spike
-                if R(i+1)<R(i) && wasRising &&  trl.t(ptid(i+1))-lastSpikeTime > tp.refractoryPeriod
+                
+                if R(i+1)<R(i) && wasRising &&  trl.t(ptid(i+1))-lastSpikeTime > rP(i)
                     spikeId(i) = 1;
                     wasRising = 0;  % no longer rising
                     lastSpikeTime = trl.t(ptid(i+1));
@@ -535,7 +570,10 @@ classdef p2p_c
                     wasRising =1;
                 end
             end
-
+            R = R*1000;
+            trl.spikes = R;
+            R = p2p_c.nonlinearity(tp,R);
+            trl.spikesNL = R;
             % Since spikes are sparse, manually convolve the 'spikes' with
             % the impulse response function.
 
@@ -557,7 +595,6 @@ classdef p2p_c
             end
 
             imp_resp = h;  % close enough to use h
-
             impFrames = [0:(length(imp_resp)-1)];
             % zero stuff out
             % spikeFrames = [1:round(tp.spikeDur/(tp.dt*tp.tSamp))];
@@ -565,8 +602,10 @@ classdef p2p_c
             for i=1:length(R)
                 if spikeId(i)
                     id = find(t>trl.t(ptid(i)),1,'first');
-                    resp(id+impFrames)  =   ...
-                        resp(id+impFrames) + p2p_c.nonlinearity(tp,R(i))*imp_resp;
+%                      resp(id+impFrames)  =   ...
+%                          resp(id+impFrames) + p2p_c.nonlinearity(tp,R(i))*imp_resp;#
+                 resp(id+impFrames)  =   ...
+                         resp(id+impFrames) + R(i)*imp_resp;
                 end
             end
 
@@ -604,6 +643,10 @@ classdef p2p_c
                     y = scFac*x.^tp.power;
                 case 'exp'
                     y = scFac*x.^tp.k;
+                case 'compression'
+                    x = x*scFac;
+                    y = (x./(x+tp.sigma));
+                    y(y>x) = x(y>x);
                 case 'linear'
                     y = x;
             end
