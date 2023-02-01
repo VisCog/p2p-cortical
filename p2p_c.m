@@ -541,6 +541,7 @@ classdef p2p_c
 
             % R will hold the values of R1 at the event times.
             R = zeros(1,length(ptid));
+            rP = 1./(tp.refractoryPeriod(1) + randi(tp.refractoryPeriod(2)-tp.refractoryPeriod(1), [1,length(ptid)]));
 
             wasRising = 0;
             R(1) = 0;
@@ -560,7 +561,8 @@ classdef p2p_c
                 % (1) R1 is going down since last event
                 % (2) R1 was going up before that, and
                 % (3) we're past the refractory period since the last spike
-                if R(i+1)<R(i) && wasRising &&  trl.t(ptid(i+1))-lastSpikeTime > tp.refractoryPeriod
+                
+                if R(i+1)<R(i) && wasRising &&  trl.t(ptid(i+1))-lastSpikeTime > rP(i)
                     spikeId(i) = 1;
                     wasRising = 0;  % no longer rising
                     lastSpikeTime = trl.t(ptid(i+1));
