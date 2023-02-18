@@ -1,0 +1,4 @@
+#.gitignore
+# Store data here, but do not sync with git repository
+*.mat
+
