@@ -4,13 +4,12 @@
 % Fits a variety of pulse width Data
 %
 
-tp = p2p_c.getModelParams();
-
+tp = p2p_c.define_temporalparameters();
 expList = {'Dobelle74'; 'Dobelle79'; 'Henderson79' ;'Girvin79'; 'Fernandez21';};
 %Data from Brindley et al. 1968 are excluded because measured thresholds were
 %  unexpectedly non-monotonic as a function of frequency, suggesting an electronics issue
 colList = {'b', 'r', 'c', 'm', 'g'};
-pdList = exp(linspace(log(0.01), log(2), 8));
+pdList = exp(linspace(log(0.01), log(2), 8)); %
 
 % begin by creating model response to our standard pulse
 clear trl;  trl.pw = 0.001;   trl.amp = 3;    trl.dur = 1 ;  trl.freq = 50;   trl.simdur = 1; %sec
@@ -30,9 +29,9 @@ for ex = 1:length(expList)
         for i =1:length(x)
             plot(log(x(i)),y(i),'o', 'MarkerFaceColor', colList{ex}, 'MarkerEdgeColor','none'); hold on
         end
-        plot(log(x),[thresh],'*', 'Color', colList{ex}); hold on
+        plot(log(x),[thresh],'*', 'Color', colList{ex}); hold on % plot simulation values
 end
-pw = exp(linspace(log(0.01), log(2), 8));freq = 50*ones(size(pd)); dur = ones(size(pd));
+pw = exp(linspace(log(0.01), log(2), 8));freq = 50*ones(size(pw)); dur = ones(size(pw));
 Tsim = table(pw, freq, dur);
 [loop_trl] = p2p_c.loop_find_threshold(tp,Tsim);
 plot(log(pd),[loop_trl(:).maxresp],'k-');
