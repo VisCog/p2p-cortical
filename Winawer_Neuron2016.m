@@ -15,7 +15,6 @@ c = p2p_c.define_cortex(c);
 tp = p2p_c.define_temporalparameters();   
 v.eccList = [1 2 3 5 8 13 21 34];
 
-
 for ii=1:5
     % set up v and c for each electrode
     switch ii
