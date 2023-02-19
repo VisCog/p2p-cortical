@@ -1,42 +1,64 @@
 
 %% fitPulseWidth.m
 %
-% Fits Pulse Width Data
+% Fits a variety of pulse width Data
 %
 
+tp = p2p_c.getModelParams();
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% PULSE WIDTH
-% load and plot pulse width data
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-expList = {'Dobelle74'; 'Dobelle79'; 'Henderson1979' ;'Girvin79'; 'Fernandez2021';};
+expList = {'Dobelle74'; 'Dobelle79'; 'Henderson79' ;'Girvin79'; 'Fernandez21';};
+%Data from Brindley et al. 1968 are excluded because measured thresholds were
+%  unexpectedly non-monotonic as a function of frequency, suggesting an electronics issue
 colList = {'b', 'r', 'c', 'm', 'g'};
-pwList =  [2 1.5 1 0.8 0.75 0.5 0.4 0.25 0.17 0.125 0.1 0.062];
+pdList = exp(linspace(log(0.01), log(2), 8));
 
-% reorganize data for ease of normalization
-ct = 1;
-for x = 1:length(expList)
-    el = eval(['p2p_psy.', expList{x}, '_getDataPW();']);
-    for e = 1:length(el)
-        for p = 1:length(pwList)
-            ind = find([el(e).trl(:).pw]*1000==pwList(p));
-            if ~isempty(ind)
-                data.amp(ct, p)=el(e).trl(ind).amp_n;
-                data.freq(ct) = el(e).trl(ind).freq;
-            else
-                data.amp(ct, p) = NaN;
-            end
-            data.col(ct) = colList(x);
+% begin by creating model response to our standard pulse
+clear trl;  trl.pw = 0.001;   trl.amp = 3;    trl.dur = 1 ;  trl.freq = 50;   trl.simdur = 1; %sec
+trl = p2p_c.define_trial(tp,trl);
+trl= p2p_c.convolve_model(tp, trl);
+tp.thresh_resp = trl.maxresp;% use that as the threshold response
+
+for ex = 1:length(expList)
+    % reorganize data for ease of normalization
+        T = readtable(['datasets/', expList{ex}, '_data.xlsx']);
+        eid =strcmp(T.experiment,'pd'); Texp = T(eid,:);
+        [err, thresh] = p2p_c.loop_find_threshold(tp,Texp); % get the model response for these pulse trains
+
+        x = Texp.pw*1000;y = Texp.amp; 
+        % now linearly scale the data, to the same sensitivity range as the model
+        k = mean(y./thresh); y = y*k; % rescale y to right units
+        for i =1:length(x)
+            plot(log(x(i)),y(i),'o', 'MarkerFaceColor', colList{ex}, 'MarkerEdgeColor','none'); hold on
         end
-        ct = ct + 1;
-    end
+        plot(log(x),[thresh],'*', 'Color', colList{ex}); hold on
 end
+pw = exp(linspace(log(0.01), log(2), 8));freq = 50*ones(size(pd)); dur = ones(size(pd));
+Tsim = table(pw, freq, dur);
+[loop_trl] = p2p_c.loop_find_threshold(tp,Tsim);
+plot(log(pd),[loop_trl(:).maxresp],'k-');
+set(gca,'XTick',log(pdList)); logx2raw; ylabel('Threshold'); widen; grid;
+xlabel('Pulse Width'); ylabel('Amplitude @ Threshold');
+return
+%
+%     el = eval(['p2p_psy.', expList{x}, '_getDataPW();']);
+%     for e = 1:length(el)
+%         for p = 1:length(pwList)
+%             ind = find([el(e).trl(:).pw]*1000==pwList(p));
+%             if ~isempty(ind)
+%                 data.amp(ct, p)=el(e).trl(ind).amp_n;
+%                 data.freq(ct) = el(e).trl(ind).freq;
+%             else
+%                 data.amp(ct, p) = NaN;
+%             end
+%             data.col(ct) = colList(x);
+%         end
+%         ct = ct + 1;
+%     end
+
 
 %% plot the data
 for x =1:size(data.amp, 1)
-    plot(pwList, data.amp(x,:), 'o', 'MarkerFaceColor', data.col{x}, 'MarkerEdgeColor', 'none'); hold on
+    plot(pdList, data.amp(x,:), 'o', 'MarkerFaceColor', data.col{x}, 'MarkerEdgeColor', 'none'); hold on
 end
 xlabel('pulse width');
 ylabel('threshold')
@@ -64,10 +86,10 @@ fitParams.thr = .5; fitParams.nreps = 10;
 fList = 50; %[1 30 50 300];
 for f = 1:length(fList)
     trl.freq = fList(f);
-    for p = 1:length(pwList)
-        disp(['finding pw threshold ', num2str(p), ' out of ', num2str(length(pwList))]);
-        disp(['pulse width is ', num2str(pwList(p))]);
-        trl.pw = pwList(p)/1000;
+    for p = 1:length(pdList)
+        disp(['finding pw threshold ', num2str(p), ' out of ', num2str(length(pdList))]);
+        disp(['pulse width is ', num2str(pdList(p))]);
+        trl.pw = pdList(p)/1000;
         trl = p2p_c.define_trial(tp,trl);
         data.model(f,p) = p2p_c.find_threshold(trl, tp, fitParams);
     end
@@ -75,5 +97,5 @@ end
 
 %% plot the pw model
 for f = 1:length(fList)
-    plot(pwList, data.model(f,:), '-'); hold on
+    plot(pdList, data.model(f,:), '-'); hold on
 end

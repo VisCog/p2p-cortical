@@ -10,6 +10,7 @@ classdef p2p_c
     methods(Static)
         %% definitions - temporal properties
 
+  
         function trl = define_trial(tp, varargin)
             if nargin < 2;  trl = [];
             else; trl = varargin{1}; end
@@ -369,23 +370,22 @@ classdef p2p_c
                 tp = varargin{1};
             end
             if ~isfield(tp, 'dt');       tp.dt = .001 * 10^-3; end % 001 time sampling in ms, should be no larger than 1/10 of tau1
-            if ~isfield(tp, 'tau1');   tp.tau1 = 0.12 * 10^-3;end
+            if ~isfield(tp, 'tau1');   tp.tau1 =0.0003; % fixed based on Nowak and Bullier, 1998
+            end
+            if ~isfield(tp, 'tSamp');   tp.tSamp = 1000;end % subsampling to speed things up
             % fit based on Brindley, 1968, Tehovnk 2004 estimates 0.13-0.24 ms
-            if ~isfield(tp, 'tau2');   tp.tau2 =  26.250* 10^-3;  end     % 24-33 from retina
+            if ~isfield(tp, 'tau2');   tp.tau2 =  0.2568;  end     % 24-33 from retina
             if ~isfield(tp, 'ncascades');  tp.ncascades = 3;   end% number of cascades in the slow filter of the temporal convolution
-            if ~isfield(tp, 'r4scFac');   tp.R4scFac = 200;   end            % scales R4, so roughly in same units as input
+            if ~isfield(tp, 'gammaflag');   tp.gammaflag = 1;   end            %  include second stage game
+            
 
             % leak out of charge accumulation
             %   tp.flag_cl=0; % 1 if you want to charge to leak back out of the system
             %   tp.tau2_cl = tp.tau2_ca * 8; % used for the conv model, fe uses p.tau2_ca
 
             % nonlinearity parameters
-            if ~isfield(tp, 'model');  tp.model = 'weibull'; end
-            if strcmp(tp.model, 'nanduri')
-                disp('using nanduri semisaturation constant')
-                tp.slope=3; %.3; % larger number = shallower slope
-                tp.asymptote=14; %14;
-                tp.shift=47; %47; % shifts curve along x-axis
+            if ~isfield(tp, 'model');  tp.model = 'compression'; end
+            if ~isfield(tp, 'power'); tp.power = 20.15;
             elseif strcmp(tp.model, 'sigmoid')
                 disp('using sigmoid semisaturation constant')
                 tp.asymptote = 2000;
@@ -453,17 +453,16 @@ classdef p2p_c
             if ~isfield(tp, 'nReps')
                 tp.nReps = 12;
             end
-            thresh = NaN(1,size(T,1));
+            thresh = NaN(size(T,1), 1);
             for i=1:size(T,1)
                 % define trial parameters based on values in the table
                 clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
                 trl = p2p_c.define_trial(tp,trl);
                 thresh(i)= p2p_c.find_threshold(trl,tp);
             end
-
+            
             err = nansum((thresh-T.amp').^2);
-            %   disp(sprintf('tau1 = %g, tau2 = %g, power = %5.2f err= %5.4f  scFac= %5.4f',  tp.tau1,tp.tau2,tp.power,err, tp.scFac));
-            disp(sprintf('mean = %g, sigma = %g,  err= %5.4f',  tp.mean,tp.sigma,err));
+            disp(sprintf('err= %5.4f',  err));
 
             if isfield(tp,'experimentList')
                 for i = 1:length(tp.experimentList)
@@ -473,12 +472,12 @@ classdef p2p_c
         end
         function err = fit_brightness(tp, T)
             [loop_trl] = p2p_c.loop_convolve_model(tp,T);
-            y_est = [loop_trl.maxresp]; y = [T.brightness]; 
-             y_est = reshape(y_est, length(y), 1);
-             y = reshape(y, length(y), 1); 
-                ind = ~isnan(y_est) & ~isnan(y);
+            y_est = [loop_trl.maxresp]; y = [T.brightness];
+            y_est = reshape(y_est, length(y), 1);
+            y = reshape(y, length(y), 1);
+            ind = ~isnan(y_est) & ~isnan(y);
             err = -corr(y(ind), y_est(ind));
-               disp(fprintf('tau1 = %g, tau2 = %g, power = %g, corr = %5.4f\n',  tp.tau1, tp.tau2, tp.power,-err));
+            disp(sprintf('tau1 =%5.4f, tau2 =%5.4f, power =%5.4f, corr = %5.4f',  tp.tau1, tp.tau2, tp.power,-err));
         end
 
         function [loop_trl] = loop_convolve_model(tp,T)
@@ -496,7 +495,7 @@ classdef p2p_c
                 clear trl;  trl.pw = T.pw(i);   trl.amp = T.amp(i);    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
                 trl = p2p_c.define_trial(tp,trl);
 
-                % define impuse response
+                % define impulse response
                 if isfield(tp,'tSamp')
                     if tp.tSamp~=1% down-sample the time-vectors
                         t = trl.t(1:tp.tSamp:end);
@@ -513,7 +512,6 @@ classdef p2p_c
                     sprintf('Warning: gamma hdr might not have a long enough time vector');
                 end
                 trl.imp_resp = h;  % close enough to use h
-
                 loop_trl(i) = p2p_c.convolve_model(tp, trl);
             end
         end
@@ -585,7 +583,7 @@ classdef p2p_c
             % Since spikes are sparse, manually convolve the 'spikes' with
             % the impulse response function at lowet temporal
             % resolution
-            
+
             if isfield(tp,'tSamp')
                 if tp.tSamp~=1% down-sample the time-vectors
                     t = trl.t(1:tp.tSamp:end);
@@ -596,60 +594,36 @@ classdef p2p_c
             ptid = find(diff(trl.pt))+1;
 
             % R will hold the values of R1 at the event times.
-            %     rP = 1./(tp.refractoryPeriod(1) + ((tp.refractoryPeriod(2)-tp.refractoryPeriod(1)).*rand([1,length(ptid)])));
-            rP = 1./(tp.refractoryPeriod(1)+tp.refractoryPeriod(2).*randn([1,length(ptid)]));
-            for j = 1:length(tp.tau1) % for each different cell type
-                Rtmp = zeros(1,length(ptid));
-                wasRising = 0;
-                % Loop through the events, calculating R1 at the end of the event
-                % and add impulse responses when R1 peaks and is after the refractory period.
-                spikeId = zeros(size(Rtmp));
-                lastSpikeTime = -1;  % Keep track of time of last spike for refractory period.  Start 'fresh'
-                for i=1:(length(ptid)-1)
-                    tNow = trl.t(ptid(i+1));
-                    delta = trl.t(ptid(i+1))-trl.t(ptid(i));  % time since last 'event'
-                    % Closed form solution to leaky integrator that predicts
-                    % R(i+1) from R(i), delta and tau1:
-                    Rtmp(i+1) = trl.pt(ptid(i))*tp.tau1(j)*(1-exp(-delta/tp.tau1(j))) + ...
-                        Rtmp(i)*exp(-delta/tp.tau1(j));
 
-                    % Add a spike if:
-                    % (1) R1 is going down since last event
-                    % (2) R1 was going up before that, and
-                    % (3) we're past the refractory period since the last spike
-                    if Rtmp(i+1)<Rtmp(i) && wasRising &&  trl.t(ptid(i+1))-lastSpikeTime > rP(i)*tp.refractoryflag
-                        spikeId(i) = 1; % check spike id identical in both loops IF CHECK
-                        wasRising = 0;  % no longer rising
-                        lastSpikeTime = trl.t(ptid(i+1));
-                    else
-                        wasRising =1;
-                    end
+
+            Rtmp = zeros(1,length(ptid));
+            wasRising = 0;
+            % Loop through the events, calculating R1 at the end of the event
+            % and add impulse responses when R1 peaks and is after the refractory period.
+            spikeId = zeros(size(Rtmp));
+            for i=1:(length(ptid)-1)
+                tNow = trl.t(ptid(i+1));
+                delta = trl.t(ptid(i+1))-trl.t(ptid(i));  % time since last 'event'
+                % Closed form solution to leaky integrator that predicts
+                % R(i+1) from R(i), delta and tau1:
+                Rtmp(i+1) = trl.pt(ptid(i))*tp.tau1*(1-exp(-delta/tp.tau1)) + ...
+                    Rtmp(i)*exp(-delta/tp.tau1);
+
+                % Add a spike if:
+                % (1) R1 is going down since last event
+                % (2) R1 was going up before that, and
+                % (3) we're past the refractory period since the last spike
+                if Rtmp(i+1)<Rtmp(i) && wasRising
+                    spikeId(i) = 1; % check spike id identical in both loops IF CHECK
+                    wasRising = 0;  % no longer rising
+                    lastSpikeTime = trl.t(ptid(i+1));
+                else
+                    wasRising =1;
                 end
-                Rall(j, :)= tp.tau1Fac(j).*Rtmp*1000;
-            end % for each type of cell
-            R1 = max(Rall, [], 1); % sensitivity determined by the most sensitive cell type
+            end
+            R1= Rtmp*1000;
             R1(R1<0)=0;
             trl.spikes = R1;
-
-            if  tp.probsumflag % using probability summation
-                resp = zeros(1,length(t));
-                for i=1:length(trl.spikes)
-                    if spikeId(i)
-                        id = find(t>trl.t(ptid(i)),1,'first');
-                        resp(id)  = normcdf(trl.spikes(i), tp.mean, tp.sigma);
-                    end
-                end
-                idlist = find(resp);
-                for w=1:length(resp)-(tp.win/tp.dt)
-                    idw = idlist(idlist>=w & idlist<(w+ (tp.win/tp.dt)));
-                    tmp = 1; % probability of not seeing the spike
-                    for i = 1:length(idw) % all the spikes in the window
-                        tmp= tmp.*(1-resp(idw)); % probability of NOT detecting any of the pulses
-                    end
-                    p_nd(w) =min(tmp) ;
-                end
-                trl.pd = 1- min(p_nd); % detection when pd is above 0.75
-            end %end of probability summation
             if tp.gammaflag
                 if ~isfield(trl, 'imp_resp')
                     dt = t(2)-t(1);
@@ -660,7 +634,7 @@ classdef p2p_c
                     else
                         sprintf('Warning: gamma hdr might not have a long enough time vector');
                     end
-                    imp_resp = h;  % close enough to use h
+                    trl.imp_resp = h;  % close enough to use h
                 end
                 impFrames = [0:(length(trl.imp_resp)-1)];
                 resp = zeros(1,length(t)+length(trl.imp_resp));        % zero stuff out
@@ -673,6 +647,9 @@ classdef p2p_c
                 end
                 resp = p2p_c.nonlinearity(tp, resp);
                 trl.maxresp = max(resp); % detection when maxresp goes above a threshold
+            else
+                resp= trl.spikes;
+                trl.maxresp = max(resp);
             end
             % save the time-course of the response for output
             trl.resp = resp(1:length(t));
@@ -698,8 +675,8 @@ classdef p2p_c
             y(t<0) = 0;
         end
         function y = nonlinearity(tp,x)
-            if isfield(tp, 'scFacInd');    scFac = tp.scFac(tp.scFacInd);
-            else scFac  =  tp.scFac(1); end
+            if ~isfield(tp, 'scFac');    scFac = 1;
+            else scFac  =  tp.scFac; end
             % some of our favorite static nonlinearities:
             switch tp.model
                 case 'sigmoid'
