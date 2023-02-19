@@ -7,26 +7,11 @@ c.efthr = 0.05; % what magnitude of electric field goes through the model, just 
 v.drawthr = 1; % what phosphene strength is visible, threshold of visibility/oval drawing
 filename = 'Troyk_Snellen_';
 
-% define cortex & retina
-c.cortexSize = [40,50]; % degrees top to bottom, degrees LR, divide by 2 to get the actual mm that are useful
-c.cortexCenter = [30,0];
-c.pixpermm = 30; % default 6, resolution of electric field sampling, for very small electrodes may need to be decreased
-
-c = p2p_c.define_cortex(c); % define the properties of the cortical map
-% set up the electrode locations in terms of their positions in the teeny
-% array
+% set up the locations in terms of their positions in cortical space
+offset = [.2 0 .2 0];
 e = create_WFMA();
-c.e = e;
-
-% transform to visual space
-v.retinaSize = [8,8]; v.pixperdeg = 15;  %visual field map size and samping
-v = p2p_c.define_visualmap(v); % defines the visual map
-v = p2p_c.c2v_define_electrodes(c,v); % convert electrode locations from cortex to visual space
 
 
-tp = p2p_c.define_temporalparameters();
-
-return
 r = .05;
 x_off = 1.5;
 y_off = 0;
@@ -40,11 +25,17 @@ v.e(1).ecc = ecc;
 c.e(1).radius = 1/5000;
 
 
+% define cortex & retina
+c.cortexSize = [40,50]; % degrees top to bottom, degrees LR, divide by 2 to get the actual mm that are useful
+c.cortexCenter = [30,0];
+c.pixpermm = 30; % default 6, resolution of electric field sampling, for very small electrodes may need to be decreased
+v.retinaSize = [8,8]; v.pixperdeg = 15;  %visual field map size and samping
+c = p2p_c.define_cortex(c); % define the properties of the cortical map
+tp = p2p_c.define_temporalparameters();
 
-
-
+v.e.
 c = p2p_c.define_electrodes(c, v); % defines properties for each electrode in retinal space
-
+v = p2p_c.define_visualmap(v); % defines the visual map
 [c, v] = p2p_c.generate_corticalmap(c, v); % create ocular dominance/orientation/rf size maps on cortical surface
 c = p2p_c.generate_ef(c); % generate map of the electric field on cortical surface
 
@@ -91,10 +82,8 @@ end
 subplot(1,2,2)
 p2p_c.plotretgrid((img./max(img(:)))*256, v, gray(256), 3,['';]);
 
-function e = create_WFMA()
-%Troyk, P., Bredeson, S., Cogan, S., Romero-Ortega, M., Suh, S., Hu, Z., ... & Bak, M. 
-% % (2015, April). In-vivo tests of a 16-channel implantable wireless neural stimulator. 
-% % 2015 7th International IEEE/EMBS Conference on Neural Engineering (NER) (pp. 474-477). IEEE.
+function create_WFMA
+
 e(1).x = .2; e(1).y = 0; e(1).radius =700/1e+7;
 e(2).x = .6; e(2).y = 0; e(2).radius =500/1e+7;
 e(3).x = 1; e(3).y = 0; e(2).radius =700/1e+7;
@@ -110,10 +99,11 @@ e(10).x = .6; e(10).y = .8; e(10).radius =700/1e+7;
 e(11).x = 1; e(11).y = .8; e(11).radius =500/1e+7;
 e(12).x = 1.4; e(12).y = .8; e(12).radius =700/1e+7;
 
-e(13).x = .2; e(13).y = .8; e(13).radius =500/1e+7;
-e(14).x = .6; e(14).y = .8; e(14).radius =700/1e+7;
-e(15).x = 1; e(15).y = .8; e(15).radius =500/1e+7;
-e(16).x = 1.4; e(16).y = .8; e(16).radius =700/1e+7;
+e(9).x = .2; e(9).y = .8; e(9).radius =500/1e+7;
+e(10).x = .6; e(10).y = .8; e(10).radius =700/1e+7;
+e(11).x = 1; e(11).y = .8; e(11).radius =500/1e+7;
+e(12).x = 1.4; e(12).y = .8; e(12).radius =700/1e+7;
+
 
 end
 

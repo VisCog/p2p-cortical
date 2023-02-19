@@ -2,17 +2,17 @@
 clear all; close all
 
 % addpath(genpath('C:\Users\Ione Fine\Documents\code\UWToolbox\UWToolbox\plotting\'));
-c.efthr = 0.35;
-v.drawthr =10;
+c.efthr = 0.005;% what magnitude of electric field goes through the model, just a speed thing so one doesn't bother processing non-active regions of cortex
+v.drawthr =1;
 
 T = readtable('datasets/Winawer2016_data.xlsx');
-colorList  = [1 0 0; 0 1 0; 1 .7 0; .3 .3  1; 0 0 1 ]; % roughly match colors to Winawer paper
+colorList  = [ 0.5    0    0;   0.5 1 0.5;   1  0.8125    0; 0   0.8750   1;     0     0    1 ]; % roughly match colors to Winawer paper
 
 % use same cortex size and center across electrodes
 c.cortexSize = [70,110];
 c.cortexCenter = [30,0];
 c = p2p_c.define_cortex(c);
-tp = p2p_c.define_temporalparameters();   
+tp = p2p_c.define_temporalparameters();
 v.eccList = [1 2 3 5 8 13 21 34];
 
 for ii=1:5
@@ -49,7 +49,7 @@ for ii=1:5
     trl = p2p_c.define_trial(tp,trl);
     trl = p2p_c.generate_phosphene(v, tp, trl);
 
-    p2p_c.plotretgrid(trl.maxphos(:, :, 1)*15, v, gray(256), ii,['subplot(2,1,1); title(''phosphene'')';]);
+    p2p_c.plotretgrid(trl.maxphos(:, :, 1)*35, v, gray(256), ii,['subplot(2,1,1); title(''phosphene'')';]);
     p2p_c.draw_ellipse(trl, ii,['subplot(2,1,1)'], 1,colorList(ii,:))
     p2p_c.plotcortgrid(c.e.ef * 30, c, gray(256), ii,['subplot(2,1,2); title(''electric field'')']);
     if strcmp(c.e.hemi,'lh')
@@ -65,7 +65,7 @@ for ii=1:5
     trl= p2p_c.loop_convolve_model(tp, Texp); % do the time
     clear sim*
     for t = 1:length(trl)
-        tmp_trl = trl(t); 
+        tmp_trl = trl(t);
         tmp_trl= p2p_c.generate_phosphene(v, tp, tmp_trl);
 
         if isfield(tmp_trl, 'ellipse')
@@ -80,50 +80,51 @@ for ii=1:5
     Texp.sim_area = sim_area';
     Texp.sim_brightness = sim_brightness';
 
-    %% plot simulated vs. actual area
-
-
+    % plot simulated vs. actual area
     figure(6);  hold on
-    ampVals = [1 10 100 ];
-    goodVals = ~isnan(Texp.area) & Texp.area>0;
-    plot(Texp.sim_area(goodVals), Texp.area(goodVals), ...
+    goodVals = ~isnan(Texp.polyarea) & Texp.polyarea>0 & Texp.sim_area>0;
+    plot(log(Texp.sim_area(goodVals)), log(Texp.polyarea(goodVals)), ...
         'ko','MarkerFaceColor',colorList(ii,:),'MarkerSize',10); hold on
-    plot([log10(1) log(300)], [log(1), log(300)], 'k');
-    set(gca,'XLim', [log10(.9) log10(350)]);   set(gca,'YLim', [log10(.9) log10(350)])
-    set(gca,'XTick', log10(ampVals));
-    set(gca,'YTick', log10(ampVals));
-    set(gca,'XTickLabel',ampVals);
-    set(gca,'YTickLabel',ampVals);
-    xlabel('Simulated Phosphene area (deg^2)');
-    ylabel('Drawn Phosphene area (deg^2)');
-    logx2raw(10);  logy2raw(10);
 
+    % plot areas as a function of charge
     figure(7);  hold on
-    ampVals = [1 3 10 30 100 300];
-    goodVals = ~isnan(Texp.area) & Texp.area>0;
-    for i = 1:2
-        subplot(1,2,i)
-        if i==1
-            plot(log10(Texp.totalcharge(goodVals)), log10(Texp.area(goodVals)), ...
+    for sp = 1:2
+        subplot(2,1,sp)
+        if sp==1
+            plot(log10(Texp.totalcharge(goodVals)), log10(Texp.polyarea(goodVals)), ...
                 'ko','MarkerFaceColor',colorList(ii,:),'MarkerSize',10); hold on
             ylabel('Drawn Phosphene area (deg^2)');
         else
             plot(log10(Texp.totalcharge(goodVals)), log10(Texp.sim_area(goodVals)), ...
                 'ko','MarkerFaceColor',colorList(ii,:),'MarkerSize',10); hold on
             ylabel('Simulated  Phosphene area (deg^2)');
-        end
-
-        plot([log10(.1) log10(300)], [log10(.1), log10(300)], 'k');
-        set(gca,'XLim', [log10(.1) log10(350)]);   set(gca,'YLim', [log10(.1) log10(350)])
-        set(gca,'XTick', log10(ampVals));
-        set(gca,'YTick', log10(ampVals));
-        set(gca,'XTickLabel',ampVals);
-        set(gca,'YTickLabel',ampVals);
-        xlabel('Charge Deposited per Trial (\muC)');
-        logx2raw(10);  logy2raw(10);
+        end   
     end
 end
+figure(6);
+    plot([log10(1) log(10000)], [log(1), log(10000)], 'k');
+    set(gca,'XLim', [log10(.0001) log10(1000000)]);  
+    set(gca,'YLim', [log10(.0001) log10(1000000)])
+    set(gca,'XTick', log10([.001 1 100 10000]));
+    set(gca,'YTick', log10([.001 1 100 10000]));
+    set(gca,'XTickLabel',[.001 1 100 10000]);
+    set(gca,'YTickLabel',[.001 1 100 10000]);
+xlabel('Simulated Phosphene area (deg^2)');
+ylabel('Drawn Phosphene area (deg^2)');
+logx2raw(10);  logy2raw(10);
 
+figure(7)
+for i = 1:2
+subplot(2, 1, i)
+set(gca,'XTick', log10([1 10 100 1000]));
+set(gca,'YTick', log10([.001 1 100 ]));
+set(gca,'XTickLabel',[ 1 10 100 1000]);
+set(gca,'YTickLabel',[.001 1 100 ]);
+set(gca,'XLim', [log10(1) log10(1001)]);
+set(gca,'YLim', [log10(0.005) log10(2000)]);
+xlabel('Charge Deposited per Trial (\muC)');
+logx2raw(10);  logy2raw(10);
+end
 
 
 
