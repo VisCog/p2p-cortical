@@ -10,6 +10,7 @@ classdef p2p_c
     methods(Static)
         %% definitions - temporal properties
 
+  
         function trl = define_trial(tp, varargin)
             if nargin < 2;  trl = [];
             else; trl = varargin{1}; end
@@ -25,7 +26,7 @@ classdef p2p_c
             trl.t = 0:tp.dt:trl.dur-tp.dt;
             if ~isfield(trl, 'pw');     trl.pw = .1 * 10^-3;    end
             if ~isfield(trl, 'ip');     trl.ip = 0;             end % interphase delay
-            if ~isfield(trl, 'lag');    trl.lag = trl.pw;       end % delay before the pulse train begins
+            if ~isfield(trl, 'lag');    trl.lag = 2*trl.pw;       end % delay before the pulse train begins
             if ~isfield(trl, 'order');  trl.order = 1;          end % 1 = cathodic first, -1  = anodic first
             if ~isfield(trl, 'freq');   trl.freq = 60;          end %NaN if not using a temporal model
             if ~isfield(trl, 'amp');    trl.amp = 100;          end % current amplitude in microAmps
@@ -42,11 +43,18 @@ classdef p2p_c
                 % it's much faster
                 trl.pt = 1;
             else
+                if trl.ip ==0
+                    on =  mod(trl.t,1/trl.freq) <=(trl.pw*2); % turn it on on
+                    off = mod(trl.t-trl.pw,1/trl.freq) <=trl.pw;
+                    tmp  = trl.amp.*(on-(2*off));
+                else
+                    on =  mod(trl.t,1/trl.freq) <trl.pw;
+                    delay =  (trl.pw+trl.ip); % time difference between on and off
+                    off = mod(trl.t-delay,1/trl.freq) < trl.pw;
+                    tmp  = trl.amp.*(on-off);
+                end
+
                 lag = round(trl.lag/tp.dt); % delay before beginning the pulse train (frames)
-                on =  mod(trl.t,1/trl.freq) < trl.pw;
-                delay =  trl.pw+trl.ip; % time difference between on and off
-                off = mod(trl.t-delay,1/trl.freq) < trl.pw;
-                tmp  = trl.amp.*(on-off);
                 trl.pt= zeros(1, lag+length(tmp));
                 trl.pt(lag+1:lag+length(tmp))=tmp;
 
@@ -133,7 +141,7 @@ classdef p2p_c
                 c.intercept = 0;
             end
             % ocular dominance columns
-            if ~isfield(c, 'sig') c.sig = .5;  end
+            if ~isfield(c, 'sig'); c.sig = .5;  end
             % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex. sig determines the distribution of OD values. Default is 5.
             % The larger sig, the more the distribution tends toward 0 and 1.
 
@@ -260,19 +268,20 @@ classdef p2p_c
                 else
                     c.e(idx(ii)).hemi = 'lh';
                 end
-
-                % transform electrodes
-                for ii=1:length(idx)
-                    if strcmp(c.e(idx(ii)).hemi, 'lh')
-                        z = v.e(idx(ii)).ecc.*exp(sqrt(-1)*(v.e(idx(ii)).ang+180)*pi/180);
-                    else
-                        z = v.e(idx(ii)).ecc.*exp(sqrt(-1)*v.e(idx(ii)).ang*pi/180);
-                    end
-                    c.e(idx(ii)).z = p2p_c.c2v(c,z);
-                    c.e(idx(ii)).x = real(c.e(idx(ii)).z);
-                    c.e(idx(ii)).y = imag(c.e(idx(ii)).z); % turn into mm
-                end
             end
+
+            % transform electrodes
+            for ii=1:length(idx)
+                if strcmp(c.e(idx(ii)).hemi, 'lh')
+                    z = v.e(idx(ii)).ecc.*exp(sqrt(-1)*(v.e(idx(ii)).ang+180)*pi/180);
+                else
+                    z = v.e(idx(ii)).ecc.*exp(sqrt(-1)*v.e(idx(ii)).ang*pi/180);
+                end
+                c.e(idx(ii)).z = p2p_c.c2v(c,z);
+                c.e(idx(ii)).x = real(c.e(idx(ii)).z);
+                c.e(idx(ii)).y = imag(c.e(idx(ii)).z); % turn into mm
+            end
+
         end
         function [v] = generate_rfmap(c, v)
             % calculates spatial phosphenes in visual space based on electrodes in
@@ -361,23 +370,22 @@ classdef p2p_c
                 tp = varargin{1};
             end
             if ~isfield(tp, 'dt');       tp.dt = .001 * 10^-3; end % 001 time sampling in ms, should be no larger than 1/10 of tau1
-            if ~isfield(tp, 'tau1');   tp.tau1 = 0.12 * 10^-3;end
+            if ~isfield(tp, 'tau1');   tp.tau1 =0.0003; % fixed based on Nowak and Bullier, 1998
+            end
+            if ~isfield(tp, 'tSamp');   tp.tSamp = 1000;end % subsampling to speed things up
             % fit based on Brindley, 1968, Tehovnk 2004 estimates 0.13-0.24 ms
-            if ~isfield(tp, 'tau2');   tp.tau2 =  26.250* 10^-3;  end     % 24-33 from retina
+            if ~isfield(tp, 'tau2');   tp.tau2 =  0.2568;  end     % 24-33 from retina
             if ~isfield(tp, 'ncascades');  tp.ncascades = 3;   end% number of cascades in the slow filter of the temporal convolution
-            if ~isfield(tp, 'r4scFac');   tp.R4scFac = 200;   end            % scales R4, so roughly in same units as input
+            if ~isfield(tp, 'gammaflag');   tp.gammaflag = 1;   end            %  include second stage game
+            
 
             % leak out of charge accumulation
             %   tp.flag_cl=0; % 1 if you want to charge to leak back out of the system
             %   tp.tau2_cl = tp.tau2_ca * 8; % used for the conv model, fe uses p.tau2_ca
 
             % nonlinearity parameters
-            if ~isfield(tp, 'model');  tp.model = 'weibull'; end
-            if strcmp(tp.model, 'nanduri')
-                disp('using nanduri semisaturation constant')
-                tp.slope=3; %.3; % larger number = shallower slope
-                tp.asymptote=14; %14;
-                tp.shift=47; %47; % shifts curve along x-axis
+            if ~isfield(tp, 'model');  tp.model = 'compression'; end
+            if ~isfield(tp, 'power'); tp.power = 20.15;
             elseif strcmp(tp.model, 'sigmoid')
                 disp('using sigmoid semisaturation constant')
                 tp.asymptote = 2000;
@@ -405,9 +413,11 @@ classdef p2p_c
             % dur     trial duration (sec)
             % freq    pulse frequency (Hz)
             % amp     amplitude at detection threshold
-
+            if ~isfield(tp, 'nReps')
+                tp.nReps = 12;
+            end
             thresh = NaN(1,size(T,1));
-            for i=1:size(T,1)             
+            for i=1:size(T,1)
                 % define trial parameters based on values in the table
                 clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
                 trl = p2p_c.define_trial(tp,trl);
@@ -422,11 +432,12 @@ classdef p2p_c
                 thresh(i)= p2p_c.find_threshold(trl,tp);
             end
 
-            err = nansum((thresh-T.amp').^2);       disp(sprintf('tau1 = %g, tau2 = %g, power = %5.2f err= %5.4f  scFac= %5.4f',  tp.tau1,tp.tau2,tp.power,err, tp.scFac));
-
+            err = nansum((thresh-T.amp').^2);
+            %    disp(sprintf('tau1 = %g, tau2 = %g, power = %5.2f err= %5.4f  scFac= %5.4f',  tp.tau1,tp.tau2,tp.power,err, tp.scFac));
+            disp(fprintf('mean = %g, sigma = %g,  err= %5.4f\n',  tp.mean,tp.sigma,err));
             if isfield(tp,'experimentList')
                 for i = 1:length(tp.experimentList)
-                    disp(sprintf('%10s: %g',tp.experimentList{i},tp.scFac(i)));
+                    disp(fprintf('%10s: %g\n',tp.experimentList{i},tp.scFac(i)));
                 end
             end
         end
@@ -439,23 +450,34 @@ classdef p2p_c
             % dur     trial duration (sec)
             % freq    pulse frequency (Hz)
             % amp     amplitude at detection threshold
-
-            thresh = NaN(1,size(T,1));
-            for i=1:size(T,1)             
+            if ~isfield(tp, 'nReps')
+                tp.nReps = 12;
+            end
+            thresh = NaN(size(T,1), 1);
+            for i=1:size(T,1)
                 % define trial parameters based on values in the table
                 clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
                 trl = p2p_c.define_trial(tp,trl);
                 thresh(i)= p2p_c.find_threshold(trl,tp);
             end
-
-            err = nansum((thresh-T.amp').^2);       
-            disp(sprintf('tau1 = %g, tau2 = %g, power = %5.2f err= %5.4f  scFac= %5.4f',  tp.tau1,tp.tau2,tp.power,err, tp.scFac));
+            
+            err = nansum((thresh-T.amp').^2);
+            disp(sprintf('err= %5.4f',  err));
 
             if isfield(tp,'experimentList')
                 for i = 1:length(tp.experimentList)
                     disp(sprintf('%10s: %g',tp.experimentList{i},tp.scFac(i)));
                 end
             end
+        end
+        function err = fit_brightness(tp, T)
+            [loop_trl] = p2p_c.loop_convolve_model(tp,T);
+            y_est = [loop_trl.maxresp]; y = [T.brightness];
+            y_est = reshape(y_est, length(y), 1);
+            y = reshape(y, length(y), 1);
+            ind = ~isnan(y_est) & ~isnan(y);
+            err = -corr(y(ind), y_est(ind));
+            disp(sprintf('tau1 =%5.4f, tau2 =%5.4f, power =%5.4f, corr = %5.4f',  tp.tau1, tp.tau2, tp.power,-err));
         end
 
         function [loop_trl] = loop_convolve_model(tp,T)
@@ -468,24 +490,39 @@ classdef p2p_c
             % freq    pulse frequency (Hz)
             % amp     amplitude at detection threshold
 
-     
-            for i=1:size(T,1)             
+            for i=1:size(T,1)
                 % define trial parameters based on values in the table
                 clear trl;  trl.pw = T.pw(i);   trl.amp = T.amp(i);    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
                 trl = p2p_c.define_trial(tp,trl);
-                 loop_trl(i) = p2p_c.convolve_model(tp, trl);
+
+                % define impulse response
+                if isfield(tp,'tSamp')
+                    if tp.tSamp~=1% down-sample the time-vectors
+                        t = trl.t(1:tp.tSamp:end);
+                    end
+                else
+                    t = trl.t;
+                end
+                dt = t(2)-t(1);
+                h = p2p_c.gamma(tp.ncascades,tp.tau2,t);            % Generate the n-cascade impulse response
+                tid = find(cumsum(h)*dt>.999,1,'first'); % Shorten the filter if needed to speed up the code.
+                if ~isempty(tid)
+                    h = h(1:tid);
+                else
+                    sprintf('Warning: gamma hdr might not have a long enough time vector');
+                end
+                trl.imp_resp = h;  % close enough to use h
+                loop_trl(i) = p2p_c.convolve_model(tp, trl);
             end
         end
-
-       
-        function amp = find_threshold(trl, tp,nReps)
+        function amp = find_threshold(trl, tp)
             % Find amplitudes at threshold with the convolve model.
             % takes in trial, tp, and optional fitParams
             % finds and returns the trl.amp for which the max output of the
             % model for that trial, trial.resp, is equal to fitParams.thr
 
-            if ~exist('nReps','var')
-                nReps = 12;
+            if ~isfield(tp, 'nReps')
+                tp.nReps = 12;
             end
             % first find the lowest 'hi' response
             hi = 1;
@@ -495,11 +532,15 @@ classdef p2p_c
                 trl.amp = hi;
                 trl = p2p_c.define_trial(tp,trl);
                 trl = p2p_c.convolve_model(tp, trl);
-                resp = max(trl.resp);
+                if tp.gammaflag
+                    resp = max(trl.resp);
+                elseif  tp.probsumflag
+                    resp = trl.pd;
+                end
             end
             lo = 0;
             % then do the binary search
-            for i = 1:nReps
+            for i = 1:tp.nReps
                 trl.amp  = (hi+lo)/2;
                 trl = p2p_c.define_trial(tp,trl);
                 trl = p2p_c.convolve_model(tp, trl);
@@ -537,84 +578,90 @@ classdef p2p_c
             % Assume the pulse train, pt, is a sequence of discrete jumps
             % in current. Find the 'events' where the pulse train, pt,
             % jumps up or down.
+            %     Rconvtmp =  zeros(1,tp.ncascades+1); CHECK WITH GEOFF
+
+            % Since spikes are sparse, manually convolve the 'spikes' with
+            % the impulse response function at lowet temporal
+            % resolution
+
+            if isfield(tp,'tSamp')
+                if tp.tSamp~=1% down-sample the time-vectors
+                    t = trl.t(1:tp.tSamp:end);
+                end
+            else
+                t = trl.t;
+            end
             ptid = find(diff(trl.pt))+1;
 
             % R will hold the values of R1 at the event times.
-            R = zeros(1,length(ptid));
-            rP = 1./(tp.refractoryPeriod(1) + randi(tp.refractoryPeriod(2)-tp.refractoryPeriod(1), [1,length(ptid)]));
 
+
+            Rtmp = zeros(1,length(ptid));
             wasRising = 0;
-            R(1) = 0;
-
             % Loop through the events, calculating R1 at the end of the event
             % and add impulse responses when R1 peaks and is after the refractory period.
-            spikeId = zeros(size(R));
-            lastSpikeTime = -1;  % Keep track of time of last spike for refractory period.  Start 'fresh'
+            spikeId = zeros(size(Rtmp));
             for i=1:(length(ptid)-1)
                 tNow = trl.t(ptid(i+1));
                 delta = trl.t(ptid(i+1))-trl.t(ptid(i));  % time since last 'event'
                 % Closed form solution to leaky integrator that predicts
                 % R(i+1) from R(i), delta and tau1:
-                R(i+1) = trl.pt(ptid(i))*tp.tau1*(1-exp(-delta/tp.tau1)) + ...
-                    R(i)*exp(-delta/tp.tau1);
+                Rtmp(i+1) = trl.pt(ptid(i))*tp.tau1*(1-exp(-delta/tp.tau1)) + ...
+                    Rtmp(i)*exp(-delta/tp.tau1);
+
                 % Add a spike if:
                 % (1) R1 is going down since last event
                 % (2) R1 was going up before that, and
                 % (3) we're past the refractory period since the last spike
-                
-                if R(i+1)<R(i) && wasRising &&  trl.t(ptid(i+1))-lastSpikeTime > rP(i)
-                    spikeId(i) = 1;
+                if Rtmp(i+1)<Rtmp(i) && wasRising
+                    spikeId(i) = 1; % check spike id identical in both loops IF CHECK
                     wasRising = 0;  % no longer rising
                     lastSpikeTime = trl.t(ptid(i+1));
                 else
                     wasRising =1;
                 end
             end
-            R = R*1000;
-            trl.spikes = R;
-            R = p2p_c.nonlinearity(tp,R);
-            trl.spikesNL = R;
-            % Since spikes are sparse, manually convolve the 'spikes' with
-            % the impulse response function.
-
-            % down-sample the time-vectors
-            if ~isfield(tp,'tSamp')
-                tp.tSamp = 1;
-                disp('Using tSamp = 1');
-            end
-            t = trl.t(1:tp.tSamp:end);
-            dt = t(2)-t(1);
-            % Generate the n-cascade impulse response
-            h = p2p_c.gamma(tp.ncascades,tp.tau2,t);
-            % Shorten the filter if needed to speed up the code.
-            tid = find(cumsum(h)*dt>.999,1,'first');
-            if ~isempty(tid)
-                h = h(1:tid);
-            else
-                sprintf('Warning: gamma hdr might not have a long enough time vector');
-            end
-
-            imp_resp = h;  % close enough to use h
-            impFrames = [0:(length(imp_resp)-1)];
-            % zero stuff out
-            % spikeFrames = [1:round(tp.spikeDur/(tp.dt*tp.tSamp))];
-            resp = zeros(1,length(t)+length(imp_resp));
-            for i=1:length(R)
-                if spikeId(i)
-                    id = find(t>trl.t(ptid(i)),1,'first');
-%                      resp(id+impFrames)  =   ...
-%                          resp(id+impFrames) + p2p_c.nonlinearity(tp,R(i))*imp_resp;#
-                 resp(id+impFrames)  =   ...
-                         resp(id+impFrames) + R(i)*imp_resp;
+            R1= Rtmp*1000;
+            R1(R1<0)=0;
+            trl.spikes = R1;
+            if tp.gammaflag
+                if ~isfield(trl, 'imp_resp')
+                    dt = t(2)-t(1);
+                    h = p2p_c.gamma(tp.ncascades,tp.tau2,t);            % Generate the n-cascade impulse response
+                    tid = find(cumsum(h)*dt>.999,1,'first'); % Shorten the filter if needed to speed up the code.
+                    if ~isempty(tid)
+                        h = h(1:tid);
+                    else
+                        sprintf('Warning: gamma hdr might not have a long enough time vector');
+                    end
+                    trl.imp_resp = h;  % close enough to use h
                 end
+                impFrames = [0:(length(trl.imp_resp)-1)];
+                resp = zeros(1,length(t)+length(trl.imp_resp));        % zero stuff out
+                for i=1:length(trl.spikes)
+                    if spikeId(i)
+                        id = find(t>trl.t(ptid(i)),1,'first');
+                        resp(id+impFrames)  =   ...
+                            resp(id+impFrames) + trl.spikes(i)*trl.imp_resp;
+                    end
+                end
+                resp = p2p_c.nonlinearity(tp, resp);
+                trl.maxresp = max(resp); % detection when maxresp goes above a threshold
+            else
+                resp= trl.spikes;
+                trl.maxresp = max(resp);
             end
-
             % save the time-course of the response for output
             trl.resp = resp(1:length(t));
             trl.tt = t;  % for plotting
         end
 
+
         %% utilities
+        function out=chronaxie(p,pw)
+            out = p.amp./(p.tau*(1-exp(-pw/p.tau)));
+        end
+
         function y=gamma(n,k,t)
             %   y=gamma(n,k,t)
             %   returns a gamma function on vector t
@@ -628,14 +675,14 @@ classdef p2p_c
             y(t<0) = 0;
         end
         function y = nonlinearity(tp,x)
-            if isfield(tp, 'scFacInd');    scFac = tp.scFac(tp.scFacInd);
-            else scFac  =  tp.scFac(1); end
+            if ~isfield(tp, 'scFac');    scFac = 1;
+            else scFac  =  tp.scFac; end
             % some of our favorite static nonlinearities:
             switch tp.model
                 case 'sigmoid'
                     y = scFac .* x.^tp.power./(x.^tp.power + tp.sigma.^2);
                 case 'normcdf'
-                    y = scFac*(normcdf(x, tp.mean, tp.sigma)*2-1);
+                    y = normcdf(x, tp.mean, tp.sigma);
                     y(y<0) = 0;
                 case 'weibull'
                     y = scFac*p2p_c.weibull(tp,x);
@@ -644,9 +691,7 @@ classdef p2p_c
                 case 'exp'
                     y = scFac*x.^tp.k;
                 case 'compression'
-                    x = x*scFac;
-                    y = (x./(x+tp.sigma));
-                    y(y>x) = x(y>x);
+                    y = tp.power.*tanh(x/tp.power);
                 case 'linear'
                     y = x;
             end
@@ -688,7 +733,6 @@ classdef p2p_c
             if ~isfield(params, 'e')
                 params.e = (0.5)^(1/3);
             end
-
             k = (-log((1-params.e)/(1-params.g)))^(1/params.b);
             p = 1 - ((1-params.g) * exp(-(k*x/params.t).^params.b));
         end
@@ -751,9 +795,9 @@ classdef p2p_c
             %   colormap, figure number and a string to evaluate
             %  (e.g. ''title('''corticalsurface''')' or 'subplot(1, 2,1)';
 
-            if nargin<3 || isempty(varargin{1});  cmap = gray(256);   else cmap = varargin{1}; end
-            if nargin<4 || isempty(varargin{2});  figNum = 1;        else figNum = varargin{2}; end
-            if nargin<5 || isempty(varargin{3});  evalstr = '';      else evalstr = varargin{3}; end
+            if nargin<3 || isempty(varargin{1});  cmap = gray(256);   else; cmap = varargin{1}; end
+            if nargin<4 || isempty(varargin{2});  figNum = 1;        else; figNum = varargin{2}; end
+            if nargin<5 || isempty(varargin{3});  evalstr = '';      else; evalstr = varargin{3}; end
 
             fH=figure(figNum); hold on
             eval(evalstr);
@@ -782,11 +826,11 @@ classdef p2p_c
             p.sigma_x = 2*sqrt(lambda_1);        p.sigma_y = 2*sqrt(lambda_2);
         end
         function fillSymbols(h,colList)
-            if ~exist('h');     h = get(gca,'Children');    end
+            if ~exist('h', 'var');     h = get(gca,'Children');    end
             for i=1:length(h)
                 if ~exist('colList','var');       col = get(h(i),'Color');
                 else
-                    if iscell(colList)      col = colList{i};
+                    if iscell(colList); col = colList{i};
                     else;     col = colList(i,:);  end
                 end
                 set(h(i),'MarkerFaceColor',col);
