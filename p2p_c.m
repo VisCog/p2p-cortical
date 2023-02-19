@@ -67,46 +67,7 @@ classdef p2p_c
                 trl.t = 0:tp.dt:trl.simdur-tp.dt;
             end
         end
-        function trl = finite_element(tp, trl)
-            % Implements accumulation of current over time using a simple finite element method
-            % written GMB 11/10/2017
-            % adapted for cortex IF 3/2/2018
-            % Finite difference method:
-
-            %  tmp.ca = 0;
-            %  tmp.cl = 0;
-            tmp.R1 = 0;
-            tmp.R4 =  zeros(1,tp.ncascades+1);
-
-            for i=1:length(trl.pt)
-                tmp.R1 = tmp.R1 + tp.dt * ((tp.scaleR1.*trl.pt(i))-tmp.R1)/tp.tau1;
-                % except for very short pulses max R2 is roughly equal to
-                % input current
-                trl.R1(i) = tmp.R1;
-                trl.R2(i) = max(tmp.R1, 0);
-                if strcmp(tp.model, 'sigmoid')
-                    tmp.R3 = tp.asymptote .* tmp.R2.^2./(tmp.R2.^2 + tp.sigma.^2);
-                elseif strcmp(tp.model, 'normcdf')
-                    tmp.R3 = tp.asymptote.*normcdf(tmp.R2, tp.mean, tp.sigma);
-                    % tmp.R3 = tmp.R3 - tp.asymptote.*normcdf(0, tp.mean, tp.sigma);
-                    tmp.R3(tmp.R3<0) = 0;
-                elseif strcmp(tp.model,'weibull')
-                    tmp.R3 = p2p_c.Weibull(tp,tmp.R2);
-                elseif strcmp(tp.model,'linear')
-                    tmp.R3 = tmp.R2;
-                end
-                if ~strcmp(tp.model, 'simpleleakyintegrator')
-                    trl.R3(i) = tmp.R3;
-                    tmp.R4(:, 1) = tmp.R3;
-                    for j=1:tp.ncascades
-                        tmp.R4(:, j+1) = tmp.R4(:, j+1) + tp.dt*(tmp.R4(:, j) - tmp.R4(:, j+1))/tp.tau2;
-                    end
-                    trl.resp(i)= tp.scaleR4 * tmp.R4(:, end);
-                else % if just a simple leaky integrator
-                    trl.resp(i) = tp.scaleR4 * trl.R2(i);
-                end
-            end
-        end
+      
 
         %% cortical stuff
         function c = define_cortex(c)
@@ -342,7 +303,7 @@ classdef p2p_c
             if isnan(trl.freq); trl.maxphos = v.e(trl.e).rfmap; trl.resp = 1;% the scaling due to current integration
             else
                 if ~isfield(trl, 'resp') % calculate the response to the pulse train if not already calculated
-                    trl = p2p_c.p2p_finite_element(tp, trl);
+                    trl = p2p_c.convolve_model(tp, trl);
                 end
                 trl.maxphos = v.e(trl.e).rfmap.*max(trl.resp); %  scaling the phosphene based on neural response over time
             end
@@ -836,6 +797,30 @@ classdef p2p_c
                 set(h(i),'MarkerFaceColor',col);
             end
         end
-
+   function draw_ellipse(trl, figNum, spstr, varargin)
+            figure(figNum); hold on
+            eval(spstr);
+            if nargin >3
+                eye = varargin{1};
+            else
+                eye = 1;
+            end
+            
+            if nargin>4
+                lineColor = varargin{2};
+            else
+                lineColor = 'g';
+            end
+            theta = linspace(-pi,pi,101);
+            
+            for e=1:length(eye)
+                r = sqrt( (trl.ellipse(eye(e)).sigma_x*trl.ellipse(eye(e)).sigma_y)^2./ ...
+                    (trl.ellipse(eye(e)).sigma_y^2*cos(theta).^2 + trl.ellipse(eye(e)).sigma_x^2*sin(theta).^2));
+                x = trl.ellipse(eye(e)).x+r.*cos(theta-trl.ellipse(eye(e)).theta);
+                y = trl.ellipse(eye(e)).y+r.*sin(theta-trl.ellipse(eye(e)).theta);
+                plot(x,y,'-','LineWidth',1,'Color',lineColor);
+            end
+            
+        end
     end
 end

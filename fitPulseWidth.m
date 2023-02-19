@@ -54,48 +54,48 @@ return
 %         end
 %         ct = ct + 1;
 %     end
-
-
-%% plot the data
-for x =1:size(data.amp, 1)
-    plot(pdList, data.amp(x,:), 'o', 'MarkerFaceColor', data.col{x}, 'MarkerEdgeColor', 'none'); hold on
-end
-xlabel('pulse width');
-ylabel('threshold')
-
-%% model pw
-tp.model = 'simpleleakyintegrator';
-tp.tau1 = 8.899999999999999e-05;
-tp.scaleR1 = 1; tp.scaleR4 = 1;
-tp = p2p_c.define_temporalparameters(tp);
-
-trl.freq = 50;
-trl.dur = 1000*10^-3;
-trl.pw = 1000* 10.^-6;
-trl.amp = 1;
-
-trl = p2p_c.define_trial(tp,trl);
-trl = p2p_c.finite_element(tp, trl);
-tp.scaleAmp = 1;
-% p2p_c.find_scaleAmp(trl, tp, fitParams);
-% finds the scale factor such that a current amplitude of fitParams.thr results in a
-% resp value of fitParams.thr.
-
-fitParams.tol = 0.05; fitParams.lo = 0; fitParams.hi = 75;
-fitParams.thr = .5; fitParams.nreps = 10;
-fList = 50; %[1 30 50 300];
-for f = 1:length(fList)
-    trl.freq = fList(f);
-    for p = 1:length(pdList)
-        disp(['finding pw threshold ', num2str(p), ' out of ', num2str(length(pdList))]);
-        disp(['pulse width is ', num2str(pdList(p))]);
-        trl.pw = pdList(p)/1000;
-        trl = p2p_c.define_trial(tp,trl);
-        data.model(f,p) = p2p_c.find_threshold(trl, tp, fitParams);
-    end
-end
-
-%% plot the pw model
-for f = 1:length(fList)
-    plot(pdList, data.model(f,:), '-'); hold on
-end
+% 
+% 
+% %% plot the data
+% for x =1:size(data.amp, 1)
+%     plot(pdList, data.amp(x,:), 'o', 'MarkerFaceColor', data.col{x}, 'MarkerEdgeColor', 'none'); hold on
+% end
+% xlabel('pulse width');
+% ylabel('threshold')
+% 
+% %% model pw
+% tp.model = 'simpleleakyintegrator';
+% tp.tau1 = 8.899999999999999e-05;
+% tp.scaleR1 = 1; tp.scaleR4 = 1;
+% tp = p2p_c.define_temporalparameters(tp);
+% 
+% trl.freq = 50;
+% trl.dur = 1000*10^-3;
+% trl.pw = 1000* 10.^-6;
+% trl.amp = 1;
+% 
+% trl = p2p_c.define_trial(tp,trl);
+% trl = p2p_c.finite_element(tp, trl);
+% tp.scaleAmp = 1;
+% % p2p_c.find_scaleAmp(trl, tp, fitParams);
+% % finds the scale factor such that a current amplitude of fitParams.thr results in a
+% % resp value of fitParams.thr.
+% 
+% fitParams.tol = 0.05; fitParams.lo = 0; fitParams.hi = 75;
+% fitParams.thr = .5; fitParams.nreps = 10;
+% fList = 50; %[1 30 50 300];
+% for f = 1:length(fList)
+%     trl.freq = fList(f);
+%     for p = 1:length(pdList)
+%         disp(['finding pw threshold ', num2str(p), ' out of ', num2str(length(pdList))]);
+%         disp(['pulse width is ', num2str(pdList(p))]);
+%         trl.pw = pdList(p)/1000;
+%         trl = p2p_c.define_trial(tp,trl);
+%         data.model(f,p) = p2p_c.find_threshold(trl, tp, fitParams);
+%     end
+% end
+% 
+% %% plot the pw model
+% for f = 1:length(fList)
+%     plot(pdList, data.model(f,:), '-'); hold on
+% end
