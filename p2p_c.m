@@ -422,8 +422,12 @@ classdef p2p_c
                 thresh(i)= p2p_c.find_threshold(trl,tp);
             end
             
+            if strmatch('amp',T.Properties.VariableNames)
             err = nansum((thresh-T.amp').^2);
             disp(sprintf('err= %5.4f',  err));
+            else
+            err = NaN;
+            end
 
             if isfield(tp,'experimentList')
                 for i = 1:length(tp.experimentList)
