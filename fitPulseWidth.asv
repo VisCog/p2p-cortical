@@ -60,11 +60,11 @@ legStr = {'Dobelle 1974, 50Hz 1 sec duration',...
     'Girvin 1979, 1 pulse 0.5 sec duration','Girvin 1979 50Hz, 0.5 sec duration',...
     'Fernandez 2021, 300Hz .167 sec duration'};
 
-sz = 50;
+sz = 10;
 %Data from Brindley et al. 1968 are excluded because measured thresholds were
 %  unexpectedly non-monotonic as a function of frequency, suggesting an electronics issue
 colList = {'b', 'r', 'c', 'm', 'g'};
-xjitterFac = .2; yjitterFac = .2;
+
 count =1;
 for i = 1:length(paperList)
     for j=1:length(exList{i})
@@ -87,21 +87,19 @@ for i = 1:length(paperList)
         
         y = Texp.amp*scFac;
         figure(1)
-        h(count)= scatter(log(Texp.pw*1000) + xjitterFac.*(rand(size(y))-.5),y+yjitterFac.*(rand(size(y))-.5),sz);
+        h(count)= scatter(log(Texp.pw*1000),y,sz);
         h(count).MarkerFaceColor =  colList{count};
         h(count).MarkerEdgeColor= 'none';
-        h(count).MarkerFaceAlpha = .5;    
-        h(count).MarkerEdgeAlpha = .5;
+        h(count).MarkerFaceAlpha = .2;    
+        h(count).MarkerEdgeAlpha = .2;
         drawnow
         
         figure(2)
         hold on
         scFac2 = standard_thresh'/thresh';
-        fh= scatter(log(Texp.pw*1000),thresh*scFac2,sz);
-           fh.MarkerFaceColor =  colList{count};
-                fh.MarkerEdgeColor= 'none';
-            fh.MarkerFaceAlpha = .5;    
-         fh.MarkerEdgeAlpha = .5;
+        fh= scatter(log(Texp.pw*1000),thresh*scFac2,'o', 'MarkerFaceColor', colList{count}, 'MarkerEdgeColor','none','MarkerSize',sz);
+         fh.MarkerFaceAlpha = .2;    
+         fh.MarkerEdgeAlpha = .2;
         drawnow
         
         count = count+1;
