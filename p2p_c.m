@@ -10,7 +10,6 @@ classdef p2p_c
     methods(Static)
         %% definitions - temporal properties
 
-  
         function trl = define_trial(tp, varargin)
             if nargin < 2;  trl = [];
             else; trl = varargin{1}; end
@@ -67,58 +66,65 @@ classdef p2p_c
                 trl.t = 0:tp.dt:trl.simdur-tp.dt;
             end
         end
-      
 
-        %% cortical stuff
         function c = define_cortex(c)
-            % cortical magnification,
+            %% cortical magnification,
             % typical log z transformation parameters (based on early
             % Schwartz model
-            if ~isfield(c, 'animal');   c.animal = 'human'; end
-            if ~isfield(c, 'efthr'); c.efthr = 0.05; end % what mag of electric field goes through the model, just a  speed thing
+            if ~isfield(c, 'animal')   c.animal = 'human'; end
             if strcmp(c.animal, 'human')
                 c.k = 15; %scale
                 c.a = 0.5; %fovea expansion for human, macaque is 0.3
+                c.shift = c.k*log(c.a);
+                if ~isfield(c, 'cortexHeight'); c.cortexHeight = [-40,40]; end %[height in mm of cortex, 0 is midline)
+                if ~isfield(c, 'cortexLength'); c.cortexLength = [-5, 80]; end %[length in mm of cortex, 0 is fovea)
+                if ~isfield(c, 'pixpermm');  c.pixpermm = 8; end    % choose the resolution to sample in mm.
             elseif strcmp(c.animal, 'macaque')
                 c.k = 5; %scale
                 c.a = 0.3; % values set by eyeballing Toottell data
+                      c.shift = c.k*log(c.a);
+                if ~isfield(c, 'cortexHeight'); c.cortexHeight = [-20,20]; end %[height in mm of cortex, 0 is midline)
+                if ~isfield(c, 'cortexLength'); c.cortexLength = [-5,30]; end %[length in mm of cortex, 0 is fovea)
+                if ~isfield(c, 'pixpermm');  c.pixpermm = 8; end    % choose the resolution to sample in mm.
+            elseif strcmp(c.animal, 'mouse')
+                c.k = 1/40; % scale Garrett, 2014 FOR V1 how many mm of cortex represents 1 degree of visual field
             end
-            % receptive fields
-            if ~isfield(c,'ar'); c.ar = 0.25; end
-            if ~isfield(c, 'rfmodel');   c.rfmodel = 'smirnakis';  end
-            if strcmp(c.rfmodel, 'smirnakis')
-                if strcmp(c.animal, 'human')
-                    c.slope =  0.05; % in terms of sigma
-                    c.intercept = 0.69;
-                    c.min = 0;
-                elseif strcmp(c.animal, 'macaque')
-                    c.slope =  0.06; % in terms of sigma
-                    c.intercept = 0.42;
-                    c.min = 0;
-                end
-            elseif strcmp(c.rfmodel, 'freeman')  % Freeman and Simoncelli, 2011
-                c.slope = 0.1644; % receptive field diameter
-                c.min = 1.21;
-                c.intercept = 0;
+            %% receptive fields
+            if ~isfield(c,'ar'); c.ar = 0.25; end % aspect ratio elongated rfs
+            if ~isfield(c, 'rfmodel');   c.rfmodel = 'ringach';  end
+            
+            if strcmp(c.animal, 'human')
+                c.slope =  0.05; % in terms of sigma
+                c.intercept = 0.69;
+                c.min = 0;
+                   c.delta = 2;
+            elseif strcmp(c.animal, 'macaque')
+                c.slope =  0.06; % in terms of sigma
+                c.intercept = 0.42;
+                c.min = 0;
+                         c.delta = 2;
+            elseif strcmp(c.animal, 'mouse') %
+                c.intercept = 20;  % Check this ezgi
             end
-            % ocular dominance columns
-            if ~isfield(c, 'sig'); c.sig = .5;  end
+            
+            %% ocular dominance columns
+            if ~isfield(c, 'sig') c.sig = .5;  end
             % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex. sig determines the distribution of OD values. Default is 5.
             % The larger sig, the more the distribution tends toward 0 and 1.
-
+            
             if strcmp(c.animal, 'human')
                 c.ODsize = 0.863; % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex, average width of a column in mm
                 c.filtSz = 3; % 3mm creates the initial OD and orientation maps
-            else
+            elseif strcmp(c.animal, 'macaque')
                 c.ODsize = 0.531; % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex, average width of a column in mm
                 c.filtSz = 1.85; % 3mm creates the initial OD and orientation maps
+            elseif strcmp(c.animal, 'mouse')
+                c.ODsize = NaN; % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex, average width of a column in mm
+                c.filtSz = NaN; % 3mm creates the initial OD and orientation maps
             end
-
+            
             % define the size and resolution of cortical and visual space parameters
             c.gridColor = [1,1,0];
-            if ~isfield(c, 'cortexSize'); c.cortexSize = [80,100]; end %[height, width] Size of cortical maps (mm)
-            if ~isfield(c, 'cortexCenter'); c.cortexCenter = [30,0]; end% center of electrode array (mm on cortex)
-            if ~isfield(c, 'pixpermm');  c.pixpermm = 8; end    % choose the resolution to sample in mm.
         end
         function [c] = generate_ef(c, varargin)
             % generates an electric field for each electrode, currently assumes they
@@ -126,7 +132,6 @@ classdef p2p_c
 
             % max electric field is normalized to 1
             idx = 1:length(c.e);
-
             if ~isfield(c, 'emodel')
                 c.emodel = 'Tehovnik';      I0 = 1;   end
             for ii=1:length(idx)
@@ -146,8 +151,8 @@ classdef p2p_c
         % generate functions
         function [c, v] = generate_corticalmap(c, v)
             % define cortex meshgrid
-            c.x = linspace(.5/c.pixpermm,c.cortexSize(2)-.5/c.pixpermm,c.cortexSize(2)*c.pixpermm) + c.cortexCenter(1) - c.cortexSize(2)/2;
-            c.y = linspace(.5/c.pixpermm,c.cortexSize(1)-.5/c.pixpermm,c.cortexSize(1)*c.pixpermm) + c.cortexCenter(2) - c.cortexSize(1)/2;
+                c.x = linspace(min(c.cortexLength),max(c.cortexLength), (max(c.cortexLength)-min(c.cortexLength))*c.pixpermm);
+            c.y = linspace(min(c.cortexHeight),max(c.cortexHeight), (max(c.cortexHeight)-min(c.cortexHeight))*c.pixpermm);
             [c.X,c.Y] = meshgrid(c.x,c.y);
 
             % Make the orientation and OD maps
@@ -189,17 +194,31 @@ classdef p2p_c
             v.zEcc = [v.eccList'*exp(sqrt(-1)*linspace(-90,90,v.n)*pi/180)]';
             c.v2c.gridEccZ = p2p_c.c2v(c, v.zEcc);
 
-            c.RFmap = max(c.slope .* abs(c.v2c.ECC), c.min) + c.intercept;
+            c.RFsizemap = max(c.slope .* abs(c.v2c.ECC), c.min) + c.intercept;
+            c.cropPix = ~(abs(c.v2c.ANG)<=max(v.angList) & abs(c.v2c.ANG)>=min(v.angList) & c.v2c.ECC<=max(v.eccList));
+
+            % create a distribution of normalized distances between excitatory and inhibitory fields
+            % based on Mata and Ringach, 2004
+            nsamples = length(c.X(:));
+            u = rand(nsamples, 1);
+            c.d_dist = -log(u)/c.delta;
+            c.d_dist = cat(1, c.d_dist, -c.d_dist);
+            c.d_dist = c.d_dist(randperm(length(c.d_dist)));
+            c.d_dist = c.d_dist(1:nsamples);
+            r = .6; mu = 2.5; sd = 1;
+            x = randn(nsamples,1);
+            y = r*x+sqrt(1-r^2)*randn(nsamples,1);
+            c.wplus = x*sd+mu;
+            c.wminus = y*sd+mu;
         end
 
         function v = define_visualmap(v)
-            if ~isfield(v, 'retinaSize');    v.retinaSize = [70,70]; end%  [height, width diameter in degrees]
-            if ~isfield(v,'retinaCenter');    v.retinaCenter = [0,0];  end
-
+           if ~isfield(v, 'visfieldHeight') v.visfieldHeight = [-30 30]; end
+            if ~isfield(v, 'visfieldWidth') v.visfieldWidth = [-30 30]; end
             if ~isfield(v,'pixperdeg');     v.pixperdeg = 7;       end
             if ~isfield(v, 'drawthr');     v.drawthr = 0.55;    end
-            v.x = linspace(.5/v.pixperdeg,v.retinaSize(2)-.5/v.pixperdeg,v.retinaSize(2)*v.pixperdeg)+v.retinaCenter(1) - v.retinaSize(2)/2;
-            v.y = linspace(.5/v.pixperdeg,v.retinaSize(1)-.5/v.pixperdeg,v.retinaSize(1)*v.pixperdeg)+v.retinaCenter(2) - v.retinaSize(1)/2;
+               v.x = linspace(v.visfieldWidth(1),v.visfieldWidth(2), v.visfieldWidth(2)-v.visfieldWidth(1).*v.pixperdeg);
+            v.y = linspace(v.visfieldHeight(1),v.visfieldHeight(2), v.visfieldHeight(2)-v.visfieldHeight(1).*v.pixperdeg);
             [v.X,v.Y] = meshgrid(v.x, v.y);
 
             %Make the grid in retinal coordinates
@@ -243,6 +262,112 @@ classdef p2p_c
                 c.e(idx(ii)).y = imag(c.e(idx(ii)).z); % turn into mm
             end
 
+        end
+        function v = c2v_define_electrodes(c,v)
+            idx = 1:length(c.e);
+            for ii = 1:length(idx)
+                v.e(idx(ii)).z = p2p_c.v2c(c,c.e(idx(ii)).x + sqrt(-1)*c.e(idx(ii)).y);
+                v.e(idx(ii)).ang = angle(v.e(idx(ii)).z) * 180/pi;
+                v.e(idx(ii)).ecc = abs(v.e(idx(ii)).z);
+                v.e(idx(ii)).x = real(v.e(idx(ii)).z);
+                v.e(idx(ii)).y = imag(v.e(idx(ii)).z);
+            end
+        end
+        function [v, c] = generate_corticalelectricalresponse(c, v)
+            if ~isfield(c, 'rfmodel')
+                c.rftype = 'ringach';
+            end
+            % generates the sum of weighted receptive fields activated by an electrode
+            % normalized so the max is 1
+            idx = 1:length(c.e);
+            for ii = 1:length(idx) % for each electrode
+                disp(['Electrode ', num2str(ii), ' of ', num2str(length(idx))]);
+                rfmap = zeros([size(v.X), 2]); % percept that includes a cortical model
+
+                for pixNum = 1:length(c.X(:)) % for each cortical location
+                    if (pixNum/10000 ==round(pixNum/10000))
+                        disp([num2str(pixNum), ' out of ', num2str(length(c.X(:)))]);
+                    end
+                    if abs(c.e(idx(ii)).ef(pixNum)) > c.efthr * 255
+                        RF = p2p_c.generate_corticalcell(double(c.e(idx(ii)).ef(pixNum)), pixNum, c, v);
+                        rfmap(:, :, 1)  =   rfmap(:, :, 1) + RF(:, :, 1);
+                        rfmap(:, :, 2)  =   rfmap(:, :, 2) + RF(:, :, 2);
+                    end
+                end
+                if sum(rfmap(:)>0)<20
+                    disp('WARNING! Too few pixels passed ef threshold.');
+                    disp(' try lowering c.efthr, checking location of electrodes relative to cortical sheet & ');
+                    disp('checking the sampling resolution of cortex');
+                end
+                v.e(idx(ii)).rfmap = rfmap./abs(max(rfmap(:)));
+            end
+        end
+        function RF = generate_corticalcell(ef, pixNum, c, v)
+            x0 = c.v2c.X(pixNum); % x center
+            y0 = c.v2c.Y(pixNum); % y center
+            od = c.ODmap(pixNum);
+            theta = pi-c.ORmap(pixNum);  %orientation
+            sigma_x = c.RFsizemap(pixNum) * c.ar; % major axis sd
+            sigma_y = c.RFsizemap(pixNum); % minor axis sd
+
+            % calculates a rf for a given location. Usually 3d (x, y and
+            % eye) but for the ringach model it's 4d (x, y, eye,
+            % on/off)
+            if strcmp(c.rfmodel, 'scoreboard')
+                % scoreboard version
+                G = ef * exp(-( (v.X-x0).^2/(0.01) + (v.Y-y0).^2/(.01)));
+                RF(:, :, 1) = G;
+                RF(:, :, 2) = G;
+            elseif strcmp(c.rfmodel, 'smirnakis')
+                aa = cos(theta)^2/(2*sigma_x^2) + sin(theta)^2/(2*sigma_y^2);
+                bb = -sin(2*theta)/(4*sigma_x^2) + sin(2*theta)/(4*sigma_y^2);
+                cc = sin(theta)^2/(2*sigma_x^2) + cos(theta)^2/(2*sigma_y^2);
+                G = ef * exp( - (aa*(v.X-x0).^2 + 2*bb*(v.X-x0).*(v.Y-y0) + cc*(v.Y-y0).^2));
+                G = G./sum(G(:));
+                RF(:, :, 1)  = od*G;
+                RF(:, :, 2)  = (1-od)*G;
+            elseif strcmp(c.rfmodel, 'ringach')
+                % creating more complex RFs based on Mata and Ringach, 2004 Neurophysiology paper
+                % Spatial Overlap of ON and OFF Subregions and Its Relation to Response Modulation Ratio in Macaque Primary Visual Cortex
+                aa = cos(theta)^2/(2*sigma_x^2) + sin(theta)^2/(2*sigma_y^2);
+                bb = -sin(2*theta)/(4*sigma_x^2) + sin(2*theta)/(4*sigma_y^2);
+                cc = sin(theta)^2/(2*sigma_x^2) + cos(theta)^2/(2*sigma_y^2);
+
+                % calculate the area of of the on and off fields, which is
+                % needed to normalize d. on and off fields use the same
+                % oriented gaussian, only their central location and their
+                % amplitudes differ
+                tmp  = exp( -(aa*(v.X-x0).^2 + 2*bb*(v.X-x0).*(v.Y-y0) + cc*(v.Y-y0).^2));
+                A = sqrt(sum(tmp(:)>0.02)/v.pixperdeg.^2);
+                d = c.d_dist(pixNum)/A; % select a random d value
+
+                % now create the real on and off fields, that are centered
+                % on different locations in space and have variable
+                % amplitudes
+                xe = x0 + (d/2).*cos(theta); ye = y0 - (d/2).*sin(theta);
+                xi = x0 - (d/2).*cos(theta); yi = y0 + (d/2).*sin(theta);
+                wplus = c.wplus(pixNum);
+                wminus = c.wminus(pixNum);
+
+                % on subunit for bright dots
+                hplus_on =  exp( - (aa*(v.X-xe).^2 + 2*bb*(v.X-xe).*(v.Y-ye) + cc*(v.Y-ye).^2));
+                hplus_on = hplus_on./sum(hplus_on(:));
+
+                % off subunit with dark dots
+                hplus_off = exp( - (aa*(v.X-xi).^2 + 2*bb*(v.X-xi).*(v.Y-yi) + cc*(v.Y-yi).^2));
+                hplus_off = hplus_off./sum(hplus_off(:));
+
+                % add the off component for bright and dark dots, and scale relative
+                % amplitudes
+                bright = wplus*hplus_on - 0.4.*wminus*hplus_off;
+                dark = wminus*hplus_off - 0.4*wplus*hplus_on;
+                RF(:, :, 1, 1)  =   od*ef*bright;
+                RF(:, :, 2, 1)  =  (1-od)*ef*bright;
+                RF(:, :, 1, 2)  =   od*ef*dark;
+                RF(:, :, 2, 2)  =  (1-od)*ef*dark;
+            else
+                error('c.rfmodel model not recognized')
+            end
         end
         function [v] = generate_rfmap(c, v)
             % calculates spatial phosphenes in visual space based on electrodes in
@@ -338,7 +463,7 @@ classdef p2p_c
             if ~isfield(tp, 'tau2');   tp.tau2 =  0.2568;  end     % 24-33 from retina
             if ~isfield(tp, 'ncascades');  tp.ncascades = 3;   end% number of cascades in the slow filter of the temporal convolution
             if ~isfield(tp, 'gammaflag');   tp.gammaflag = 1;   end            %  include second stage game
-            
+
 
             % leak out of charge accumulation
             %   tp.flag_cl=0; % 1 if you want to charge to leak back out of the system

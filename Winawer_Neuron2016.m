@@ -9,8 +9,8 @@ T = readtable('datasets/Winawer2016_data.xlsx');
 colorList  = [ 0.5    0    0;   0.5 1 0.5;   1  0.8125    0; 0   0.8750   1;     0     0    1 ]; % roughly match colors to Winawer paper
 
 % use same cortex size and center across electrodes
-c.cortexSize = [70,110];
-c.cortexCenter = [30,0];
+c.cortexHeight = [-35,35]; % degrees top to bottom, degrees LR,
+c.cortexLength = [-10, 110]; 
 c = p2p_c.define_cortex(c);
 tp = p2p_c.define_temporalparameters();
 v.eccList = [1 2 3 5 8 13 21 34];
@@ -20,19 +20,19 @@ for ii=1:5
     switch ii
         case 1
             v.e.ang = 19.8;      v.e.ecc = 26.6;  c.e.radius = 1.150; % in cm
-            v.retinaSize = [70,70]; v.pixperdeg = 12; v.retinaCenter = [0, 0];
+          v.visfieldHeight = [-35,35]; v.visfieldWidth= [-35,35]; v.pixperdeg = 12;
         case 2
             v.e.ang = -166.4;    v.e.ecc = 9;     c.e.radius = 0.510;
-            v.retinaSize = [50,50];  v.pixperdeg = 12; v.retinaCenter =[0, 0];
+            v.visfieldHeight = [-25,25]; v.visfieldWidth= [-25,25]; v.pixperdeg = 12; 
         case 3
             v.e.ang = 142.2;     v.e.ecc = 5.12;  c.e.radius = 1.150;
-            v.retinaSize = [20,20]; v.pixperdeg = 12; v.retinaCenter = [0, 0];
+            v.visfieldHeight = [-10,10]; v.visfieldWidth= [-10,10]; v.pixperdeg = 12; 
         case 4 % central electrodes
             v.e.ang = 135;       v.e.ecc = 1.9;   c.e.radius = 1.150;
-            v.retinaSize = [10,10]; v.pixperdeg = 12; v.retinaCenter = [0, 0];
+           v.visfieldHeight = [-5,5]; v.visfieldWidth= [-5,5]; v.pixperdeg = 12; 
         case 5
             v.e.ang = 146.3;     v.e.ecc = 1;     c.e.radius = 1.150;
-            v.retinaSize = [10, 10]; v.pixperdeg = 12; v.retinaCenter = [0, 0];
+           v.visfieldHeight = [-5,5]; v.visfieldWidth= [-5,5]; v.pixperdeg = 12; 
     end
 
     v = p2p_c.define_visualmap(v);
