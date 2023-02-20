@@ -38,6 +38,7 @@ classdef p2p_c
 
         function trl = generate_pt(trl, tp)
             if isnan(trl.freq)
+
                 % if all you are interested in is space then don't use a
                 % temporal model at all, space and time are separable and
                 % it's much faster
@@ -380,7 +381,7 @@ classdef p2p_c
             thresh = NaN(1,size(T,1));
             for i=1:size(T,1)
                 % define trial parameters based on values in the table
-                clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
+                clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 3; %sec
                 trl = p2p_c.define_trial(tp,trl);
 
                 tp.scFacInd = 1;     % separate 'scFac' for each experiment
@@ -395,7 +396,7 @@ classdef p2p_c
 
             err = nansum((thresh-T.amp').^2);
             %    disp(sprintf('tau1 = %g, tau2 = %g, power = %5.2f err= %5.4f  scFac= %5.4f',  tp.tau1,tp.tau2,tp.power,err, tp.scFac));
-            disp(fprintf('mean = %g, sigma = %g,  err= %5.4f\n',  tp.mean,tp.sigma,err));
+            % disp(fprintf('mean = %g, sigma = %g,  err= %5.4f\n',  tp.mean,tp.sigma,err));
             if isfield(tp,'experimentList')
                 for i = 1:length(tp.experimentList)
                     disp(fprintf('%10s: %g\n',tp.experimentList{i},tp.scFac(i)));
@@ -417,14 +418,14 @@ classdef p2p_c
             thresh = NaN(size(T,1), 1);
             for i=1:size(T,1)
                 % define trial parameters based on values in the table
-                clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
+                clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 3; %sec
                 trl = p2p_c.define_trial(tp,trl);
                 thresh(i)= p2p_c.find_threshold(trl,tp);
             end
             
             if strmatch('amp',T.Properties.VariableNames)
             err = nansum((thresh-T.amp').^2);
-            disp(sprintf('err= %5.4f',  err));
+            % disp(sprintf('err= %5.4f',  err));
             else
             err = NaN;
             end
@@ -454,10 +455,9 @@ classdef p2p_c
             % dur     trial duration (sec)
             % freq    pulse frequency (Hz)
             % amp     amplitude at detection threshold
-
             for i=1:size(T,1)
                 % define trial parameters based on values in the table
-                clear trl;  trl.pw = T.pw(i);   trl.amp = T.amp(i);    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
+                clear trl;  trl.pw = T.pw(i);   trl.amp = T.amp(i);    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 3; %sec
                 trl = p2p_c.define_trial(tp,trl);
 
                 % define impulse response
@@ -474,17 +474,18 @@ classdef p2p_c
                 if ~isempty(tid)
                     h = h(1:tid);
                 else
-                    sprintf('Warning: gamma hdr might not have a long enough time vector');
+                    disp(sprintf('Warning: gamma hdr might not have a long enough time vector'));
                 end
+   
                 trl.imp_resp = h;  % close enough to use h
                 loop_trl(i) = p2p_c.convolve_model(tp, trl);
             end
         end
         function amp = find_threshold(trl, tp)
             % Find amplitudes at threshold with the convolve model.
-            % takes in trial, tp, and optional fitParams
+            % takes in trial and tp
             % finds and returns the trl.amp for which the max output of the
-            % model for that trial, trial.resp, is equal to fitParams.thr
+            % model for that trial, trial.resp, is equal to tp.thresh_resp
 
             if ~isfield(tp, 'nReps')
                 tp.nReps = 12;
@@ -501,6 +502,9 @@ classdef p2p_c
                     resp = max(trl.resp);
                 elseif  tp.probsumflag
                     resp = trl.pd;
+                end
+                if hi>1e10
+                    error(sprintf('Can''t get amplitude high enough to geta a response above %5.2f',tp.thresh_resp));
                 end
             end
             lo = 0;
@@ -565,7 +569,7 @@ classdef p2p_c
             wasRising = 0;
             % Loop through the events, calculating R1 at the end of the event
             % and add impulse responses when R1 peaks and is after the refractory period.
-            spikeId = zeros(size(Rtmp));
+            spikeId = logical(size(Rtmp));
             for i=1:(length(ptid)-1)
                 tNow = trl.t(ptid(i+1));
                 delta = trl.t(ptid(i+1))-trl.t(ptid(i));  % time since last 'event'
@@ -588,27 +592,32 @@ classdef p2p_c
             end
             R1= Rtmp*1000;
             R1(R1<0)=0;
-            trl.spikes = R1;
+            % pull out only spike events
+            trl.spikes = R1(spikeId);
+            ptid = ptid(spikeId);
             if tp.gammaflag
-                if ~isfield(trl, 'imp_resp')
+             %   if ~isfield(trl, 'imp_resp')  % danger - if pre-computed,
+             %   it wont change if tau2 changes.
                     dt = t(2)-t(1);
                     h = p2p_c.gamma(tp.ncascades,tp.tau2,t);            % Generate the n-cascade impulse response
-                    tid = find(cumsum(h)*dt>.999,1,'first'); % Shorten the filter if needed to speed up the code.
+                    tid = find(cumsum(h)*dt>=.999,1,'first'); % Shorten the filter if needed to speed up the code.
                     if ~isempty(tid)
                         h = h(1:tid);
                     else
-                        sprintf('Warning: gamma hdr might not have a long enough time vector');
+                        disp(sprintf('Warning: gamma hdr might not have a long enough time vector'));
                     end
                     trl.imp_resp = h;  % close enough to use h
-                end
+            %    end
                 impFrames = [0:(length(trl.imp_resp)-1)];
                 resp = zeros(1,length(t)+length(trl.imp_resp));        % zero stuff out
+                
+                %reduction in spikes by inter-spike intervals:
+                interspike = [0,diff(trl.t(ptid))];
+                trl.spikes = trl.spikes.*(1-exp(-tp.refrac*(interspike+tp.delta)));
                 for i=1:length(trl.spikes)
-                    if spikeId(i)
                         id = find(t>trl.t(ptid(i)),1,'first');
                         resp(id+impFrames)  =   ...
                             resp(id+impFrames) + trl.spikes(i)*trl.imp_resp;
-                    end
                 end
                 resp = p2p_c.nonlinearity(tp, resp);
                 trl.maxresp = max(resp); % detection when maxresp goes above a threshold
