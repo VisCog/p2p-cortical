@@ -467,7 +467,7 @@ classdef p2p_c
                 if ~isfield(tp, 'ncascades');  tp.ncascades = 3;   end% number of cascades in the slow filter of the temporal convolution
                 if ~isfield(tp, 'gammaflag');   tp.gammaflag = 1;   end            %  include second stage game
 
-                
+
 
                 % nonlinearity parameters
                 if ~isfield(tp, 'model');  tp.model = 'compression'; end
@@ -583,8 +583,10 @@ classdef p2p_c
                     % define trial parameters based on values in the table
                     clear trl;  trl.pw = T.pw(i);   trl.amp = T.amp(i);    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 3; %sec
                     trl = p2p_c.define_trial(tp,trl);
-
-                    % define impulse response
+                    loop_trl(i) = p2p_c.convolve_model(tp, trl);
+                end
+            end
+            function  trl = define_impulse_response(tp, trl)
                     if isfield(tp,'tSamp')
                         if tp.tSamp~=1% down-sample the time-vectors
                             t = trl.t(1:tp.tSamp:end);
@@ -601,8 +603,7 @@ classdef p2p_c
                         sprintf('Warning: gamma hdr might not have a long enough time vector');
                     end
                     trl.imp_resp = h;  % close enough to use h
-                    loop_trl(i) = p2p_c.convolve_model(tp, trl);
-                end
+                    trl.t = t;
             end
             function amp = find_threshold(trl, tp)
                 % Find amplitudes at threshold with the convolve model.
@@ -714,18 +715,7 @@ classdef p2p_c
             trl.spikes = R1(spikeId);
             ptid = ptid(spikeId);
             if tp.gammaflag
-             %   if ~isfield(trl, 'imp_resp')  % danger - if pre-computed,
-             %   it wont change if tau2 changes.
-                    dt = t(2)-t(1);
-                    h = p2p_c.gamma(tp.ncascades,tp.tau2,t);            % Generate the n-cascade impulse response
-                    tid = find(cumsum(h)*dt>=.999,1,'first'); % Shorten the filter if needed to speed up the code.
-                    if ~isempty(tid)
-                        h = h(1:tid);
-                    else
-                        disp('Warning: gamma hdr might not have a long enough time vector');
-                    end
-                    trl.imp_resp = h;  % close enough to use h
-            %    end
+                trl = define_impulse_response(tp, trl); 
                 impFrames = [0:(length(trl.imp_resp)-1)];
                 resp = zeros(1,length(t)+length(trl.imp_resp));        % zero stuff out
                 
