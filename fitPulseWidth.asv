@@ -35,7 +35,7 @@ clear x y1 y2
 count = 0;
 for i = 1:length(paperList)
     for j=1:length(exList{i})
-        disp(sprintf('Paper: %s, experiment: %s \n',paperList{i},exList{i}{j}))
+        disp(fprintf('Paper: %s, experiment: %s \n',paperList{i},exList{i}{j}))
         T = readtable(['datasets/', paperList{i}, '_data.xlsx']);
         eid =strcmp(T.experiment,exList{i}{j});
         if sum(eid)
@@ -78,22 +78,26 @@ Tstandard.Properties.VariableNames = {'pw','freq','dur'};
 % get thresholds
 [err, standard_thresh] = p2p_c.loop_find_threshold(tp,Tstandard);
 
-%% Plotting real data
-% (fast after running previous chunks)
+%% Plotting reak d(fast after running previous chunks)
+%
 
-sz = 150; % symbol size
+sz = 200; % symbol size
 xtick = [.05,.1,.2,.4,.8,1.6,3.2,6.4];
 colList = {'b', 'r', 'c', 'm', 'g'};
 alpha = .5;  % transparency
 sd = .1; % jitter
 
 fontSize = 12;
-figure(1); clf; hold on
+
+figure(1)
+clf
+hold on
 plot(log(pdList*1000),standard_thresh,'k-','LineWidth',2);
 for i=1:length(x)
-    h(i)= scatter(x{i}+sd*(rand(size(x{i}))-.5),y1{i},sz , 'MarkerFaceColor', colList{i},...
-        'MarkerEdgeColor','none','MarkerFaceAlpha',alpha);
+    h(i)= scatter(x{i}+sd*randn(size(x{i})),y1{i},sz , 'MarkerFaceColor', colList{i},...
+        'MarkerEdgeColor','k','MarkerFaceAlpha',alpha);
 end
+
 set(gca,'XTick',log(xtick)); logx2raw; ylabel('Threshold'); widen; grid;
 xlabel('Pulse Width (msec)'); ylabel('Amplitude @ Threshold');
 legend(h,legStr,'Location','NorthEast');
@@ -103,19 +107,25 @@ set(gca,'FontSize',fontSize);
 % Figure 2 holds the predicted thresholds for each experiment scaled
 % to match the standard stimulus curve.  The curves match perfectly - the
 % shape
+
 sd = 0;
-figure(2); clf; hold on
+figure(2)
+clf
+hold on
 plot(log(pdList*1000),standard_thresh,'k-','LineWidth',2);
 for i=1:length(x)
-    h(i)= scatter(x{i}+sd*(rand(size(x{i}))-.5),y2{i},sz , 'MarkerFaceColor', colList{i},...
-        'MarkerEdgeColor','none','MarkerFaceAlpha',alpha);
+    h(i)= scatter(x{i}+sd*randn(size(x{i})),y2{i},sz , 'MarkerFaceColor', colList{i},...
+        'MarkerEdgeColor','k','MarkerFaceAlpha',alpha);
 end
+
 set(gca,'XTick',log(xtick)); logx2raw; ylabel('Threshold'); widen; grid;
 xlabel('Pulse Width (msec)'); ylabel('Amplitude @ Threshold');
 legend(h,legStr,'Location','NorthEast');
 set(gca,'YLim',[0,20]);
 set(gca,'FontSize',fontSize);
 title('Scaled model predictions');
+
+
 
 
 
