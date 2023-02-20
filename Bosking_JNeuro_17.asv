@@ -1,7 +1,7 @@
 % Bosking_JNeuro_17.m
 c.e.radius = 0.25;
 c.efthr = 0.05;
-n_e_sample = NaN; % how many electrodes to simulate, if NaN simulates all of them
+n_e_sample = 10; % how many electrodes to simulate, if NaN simulates all of them
 %%  begin by defining the location and size of electrodes
 all_v= Bosking_getData(42);
 
@@ -13,12 +13,7 @@ for i=43:50
     all_v.e(i).ang = (rand(1)*2*pi)-pi;
 end
 
-if ~isnan(n_e_sample)
 ss = randperm(length(all_v.e), n_e_sample); % collect a random subsample of the electrodes
-else
-    ss = 1:length(all_v.e);
-    n_e_sample = length(all_v.e);
-end
 
 %% define cortical and visual space
 c.cortexHeight = [-35,35]; % degrees top to bottom, degrees LR,
@@ -31,6 +26,12 @@ v = p2p_c.define_visualmap(v);
 [c, v] = p2p_c.generate_corticalmap(c, v);
 % temporal parameters
 tp = p2p_c.define_temporalparameters();
+ampList = [50 100 150 200 250 500,750,1000,1500,2000,3000,4000];
+trl.dur = 200*10^-3; % duration in s
+trl.t = 0:tp.dt:trl.dur-tp.dt;
+trl.pw = .1 * 10^-3; % pulse width in s
+trl.order = 1; % 1 = cathodic first, -1  = anodic first
+trl.freq = 200; % -1 for a single pulse, NaN if not using a temporal model
 
 % set up plots
 figure(1); hold on
@@ -43,22 +44,23 @@ c.e.radius = 0.25;
 c = p2p_c.define_electrodes(c, v);
 c = p2p_c.generate_ef(c);
 
-amp = [50 100 150 200 250 500,750,1000,1500,2000,3000,4000];
-dur =  200*10^-3*ones(size(ampList));
-pw =  .1 * 10^-3*ones(size(ampList));
-freq  = 200 * 10^-3*ones(size(ampList));
+ampList = [50 100 150 200 250 500,750,1000,1500,2000,3000,4000];
+durList =  200*10^-3*ones(size(ampList));
+pdList = exp(linspace(log(0.05), log(6.4), 40))/1000;
+freq = standard_trl.freq*ones(size(pdList));
+dur = standard_trl.dur*ones(size(pdList));
 
-Tsim = table(amp', pw', freq', dur');
-Tsim.Properties.VariableNames = {'amp', 'pw','freq','dur'};
-all_trl = p2p_c.loop_convolve_model(tp, Tsim);
+Tsim_50 = table(pdList', freq', dur');
 
 figure(1) % show electrode location in visual space
 plot([v.e.ecc].*cos([v.e.ang]),[v.e.ecc].*sin([v.e.ang]),'ko','MarkerFaceColor','w');
 
 v = p2p_c.generate_corticalelectricalresponse(c, v);
-    for tt=1:length(amp)
-        trl = all_trl(tt);
-        trl = p2p_c.generate_phosphene(v, tp, trl, all_trl(tt).resp);
+    for tt=1:length(ampList)
+        trl.amp = ampList(tt);
+        trl = rmfield(trl, 'resp');
+        trl = p2p_c.define_trial(tp,trl);
+        trl = p2p_c.generate_phosphene(v, tp, trl);
         img = mean(trl.maxphos, 3); % average over both eye-dominant cells
         p2p_c.plotretgrid((img./max(img(:)))*256, v, gray(256), 2, ['';]);
         trl.sim_radius= mean([trl.ellipse(1).sigma_x trl.ellipse(1).sigma_y]);
@@ -71,35 +73,65 @@ v = p2p_c.generate_corticalelectricalresponse(c, v);
     end
 end
 
+%%
 % Plot normalized size as a function of Current (figure 3D)
+
 max_size = max(sim_sizes')';
 y = sim_sizes./repmat(max_size,1,length(ampList));
 
-figure(2); clf; hold on
+figure(2)
+clf
+hold on
 plot(ampList(1:end)/1000,y(:,1:end),'k-','LineWidth',1);
+
 plot(ampList(1:end)/1000,y(:,1:end),'s','Color','k','MarkerFaceColor',.75*[1,1,1],'MarkerSize',18,'LineWidth',2);
 xlabel('Current (mA)');
 ylabel('Normalized phosphene size');
 set(gca,'XLim',[0,4.100]);
 set(gca,'XTick',[0:4]);
 set(gca,'YLIm',[0,1.1]);
+
 set(gca,'FontSize',24);
+
 
 %%
 % Plot phosphene size as a function of phosphene eccentricity (for
 % stimulation at 1000 microamps)
 
-figure(3); clf; hold on
-idx = find(amp == 1000);
-for ii=1:n_e_sample
-    plot(   all_v.e(ii).ecc, sim_sizes(ii,idx), 'ks', 'MarkerSize', 12,'MarkerFaceColor',[.75,.75,.75],'LineWidth',2); % Figure 4, Bosking 2017
-if ii>42    
-    plot(all_v.e(ii).ecc, sim_sizes(ii,idx), 'ks', 'MarkerSize', 12,'MarkerFaceColor',[1,.5,.5],'LineWidth',2); % Figure 4, Bosking 2017
+figure(3)
+clf
+idx = find(ampList == 1000);
+
+hold on
+for ee=1:length(v.e)  
+    plot(v.e(ee).ecc, sim_sizes(ee,idx), 'ks', 'MarkerSize', 18,'MarkerFaceColor',[.75,.75,.75],'LineWidth',2); % Figure 4, Bosking 2017
+if ee>42    plot(v.e(ee).ecc, sim_sizes(ee,idx), 'ks', 'MarkerSize', 18,'MarkerFaceColor',[1,.5,.5],'LineWidth',2); % Figure 4, Bosking 2017
 end
 end
 xlabel('Eccentricity (deg)'); ylabel('Phosphene size (deg)');
 set(gca,'FontSize',20);set(gca, 'YLim', [0 6])
 
+
+%%
+% plot example pulse train and response
+dt = trl.t(2)-trl.t(1);
+figure(4)
+clf
+plot(dt:dt:(dt*length(trl.pt)),trl.pt,'k-');
+set(gca,'YTick',[]);
+widen
+%heighten(2)
+xlabel('Time (s)');
+set(gca,'FontSize',16); ylabel('Amplitude');
+
+figure(5)
+clf
+plot(dt:dt:(dt*length(trl.resp)),trl.resp,'k-');
+set(gca,'YTick',[]); widen; 
+%heighten
+xlabel('Time (s)'); set(gca,'FontSize',16); ylabel('Response');
+
+%%
 
 function v = Bosking_getData(varargin)
 
