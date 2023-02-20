@@ -17,7 +17,6 @@ nelect = 70;
 % in_img_resize = imresize(in_img, [size(v.X, 1), size(v.X, 2)]);
 % out_filename = ['TeddySmiling', num2str(length(v.e))];
 
-
 %% define cortex
 
 c.cortexSize = [60,100]; % degrees top to bottom, degrees LR, divide by 2 to get the actual mm that are useful
