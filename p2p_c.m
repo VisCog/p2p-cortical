@@ -467,9 +467,7 @@ classdef p2p_c
                 if ~isfield(tp, 'ncascades');  tp.ncascades = 3;   end% number of cascades in the slow filter of the temporal convolution
                 if ~isfield(tp, 'gammaflag');   tp.gammaflag = 1;   end            %  include second stage game
 
-                % leak out of charge accumulation
-                %   tp.flag_cl=0; % 1 if you want to charge to leak back out of the system
-                %   tp.tau2_cl = tp.tau2_ca * 8; % used for the conv model, fe uses p.tau2_ca
+                
 
                 % nonlinearity parameters
                 if ~isfield(tp, 'model');  tp.model = 'compression'; end
@@ -573,7 +571,6 @@ classdef p2p_c
             end
 
             function [loop_trl] = loop_convolve_model(tp,T)
-                %
                 % Runs the 'conv' model to get thresholds based on trials in the table 'T'.
                 % returns the SSE and thresholds.  Table must contain fields holding the
                 % following parameters for each trial:

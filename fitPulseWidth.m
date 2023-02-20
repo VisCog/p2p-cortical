@@ -85,7 +85,7 @@ sz = 150; % symbol size
 xtick = [.05,.1,.2,.4,.8,1.6,3.2,6.4];
 colList = {'b', 'r', 'c', 'm', 'g'};
 alpha = .5;  % transparency
-sd = .1; % jitter
+sd = .15; % jitter
 
 fontSize = 12;
 figure(1); clf; hold on
