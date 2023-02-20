@@ -82,7 +82,7 @@ classdef p2p_c
             elseif strcmp(c.animal, 'macaque')
                 c.k = 5; %scale
                 c.a = 0.3; % values set by eyeballing Toottell data
-                      c.shift = c.k*log(c.a);
+                c.shift = c.k*log(c.a);
                 if ~isfield(c, 'cortexHeight'); c.cortexHeight = [-20,20]; end %[height in mm of cortex, 0 is midline)
                 if ~isfield(c, 'cortexLength'); c.cortexLength = [-5,30]; end %[length in mm of cortex, 0 is fovea)
                 if ~isfield(c, 'pixpermm');  c.pixpermm = 8; end    % choose the resolution to sample in mm.
@@ -92,26 +92,26 @@ classdef p2p_c
             %% receptive fields
             if ~isfield(c,'ar'); c.ar = 0.25; end % aspect ratio elongated rfs
             if ~isfield(c, 'rfmodel');   c.rfmodel = 'ringach';  end
-            
+
             if strcmp(c.animal, 'human')
                 c.slope =  0.05; % in terms of sigma
                 c.intercept = 0.69;
                 c.min = 0;
-                   c.delta = 2;
+                c.delta = 2;
             elseif strcmp(c.animal, 'macaque')
                 c.slope =  0.06; % in terms of sigma
                 c.intercept = 0.42;
                 c.min = 0;
-                         c.delta = 2;
+                c.delta = 2;
             elseif strcmp(c.animal, 'mouse') %
                 c.intercept = 20;  % Check this ezgi
             end
-            
+
             %% ocular dominance columns
             if ~isfield(c, 'sig') c.sig = .5;  end
             % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex. sig determines the distribution of OD values. Default is 5.
             % The larger sig, the more the distribution tends toward 0 and 1.
-            
+
             if strcmp(c.animal, 'human')
                 c.ODsize = 0.863; % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex, average width of a column in mm
                 c.filtSz = 3; % 3mm creates the initial OD and orientation maps
@@ -122,7 +122,7 @@ classdef p2p_c
                 c.ODsize = NaN; % Adams 2007 Complete pattern of ocular dominance columns in human primary visual cortex, average width of a column in mm
                 c.filtSz = NaN; % 3mm creates the initial OD and orientation maps
             end
-            
+
             % define the size and resolution of cortical and visual space parameters
             c.gridColor = [1,1,0];
         end
@@ -151,7 +151,7 @@ classdef p2p_c
         % generate functions
         function [c, v] = generate_corticalmap(c, v)
             % define cortex meshgrid
-                c.x = linspace(min(c.cortexLength),max(c.cortexLength), (max(c.cortexLength)-min(c.cortexLength))*c.pixpermm);
+            c.x = linspace(min(c.cortexLength),max(c.cortexLength), (max(c.cortexLength)-min(c.cortexLength))*c.pixpermm);
             c.y = linspace(min(c.cortexHeight),max(c.cortexHeight), (max(c.cortexHeight)-min(c.cortexHeight))*c.pixpermm);
             [c.X,c.Y] = meshgrid(c.x,c.y);
 
@@ -213,11 +213,11 @@ classdef p2p_c
         end
 
         function v = define_visualmap(v)
-           if ~isfield(v, 'visfieldHeight') v.visfieldHeight = [-30 30]; end
+            if ~isfield(v, 'visfieldHeight') v.visfieldHeight = [-30 30]; end
             if ~isfield(v, 'visfieldWidth') v.visfieldWidth = [-30 30]; end
             if ~isfield(v,'pixperdeg');     v.pixperdeg = 7;       end
             if ~isfield(v, 'drawthr');     v.drawthr = 0.55;    end
-               v.x = linspace(v.visfieldWidth(1),v.visfieldWidth(2), v.visfieldWidth(2)-v.visfieldWidth(1).*v.pixperdeg);
+            v.x = linspace(v.visfieldWidth(1),v.visfieldWidth(2), v.visfieldWidth(2)-v.visfieldWidth(1).*v.pixperdeg);
             v.y = linspace(v.visfieldHeight(1),v.visfieldHeight(2), v.visfieldHeight(2)-v.visfieldHeight(1).*v.pixperdeg);
             [v.X,v.Y] = meshgrid(v.x, v.y);
 
@@ -369,353 +369,232 @@ classdef p2p_c
                 error('c.rfmodel model not recognized')
             end
         end
-%         function [v] = generate_rfmap(c, v)
-%             % calculates spatial phosphenes in visual space based on electrodes in
-%             % cortical space
-%             if ~isfield(c, 'rftype')
-%                 c.rftype = 'rf';
-%             end
-%             % generates the sum of weighted receptive fields activated by an electrode
-%             % normalized so the max is 1
-%             idx = 1:length(v.e);
-%             for ii = 1:length(idx)
-%                 disp([num2str(round((100*ii)/length(idx))),  '% electrodes complete' ]);
-%                 rfmap = zeros([size(v.X), 2]); % percept that includes a cortical model
-% 
-%                 for pixNum = 1:length(c.X(:))
-%                     if c.e(idx(ii)).ef(pixNum) > c.efthr * 255
-%                         x0 = c.v2c.X(pixNum); % x center
-%                         y0 = c.v2c.Y(pixNum); % y center
-%                         if strcmp(c.e(idx(ii)).hemi, 'lh')
-%                             x0=-x0; y0 = -y0;
-%                         end
-%                         theta = pi-c.ORmap(pixNum);  %orientation
-%                         sigma_x = c.RFmap(pixNum) * c.ar; % major axis sd
-%                         sigma_y = c.RFmap(pixNum); % minor axis sd
-% 
-%                         % things you need to go from sigmas and theta to G
-%                         aa = cos(theta)^2/(2*sigma_x^2) + sin(theta)^2/(2*sigma_y^2);
-%                         bb = -sin(2*theta)/(4*sigma_x^2) + sin(2*theta)/(4*sigma_y^2);
-%                         cc = sin(theta)^2/(2*sigma_x^2) + cos(theta)^2/(2*sigma_y^2);
-% 
-%                         % oriented 2D Gaussian
-%                         if strcmp(c.rftype, 'scoreboard')
-%                             % scoreboard version
-%                             tmp = double( c.e(idx(ii)).ef(pixNum))/255;
-%                             rfmap(:, :, 1) = rfmap(:, :, 1) + (tmp * exp(-( (v.X-x0).^2/(0.01) + (v.Y-y0).^2/(.01))));
-%                             rfmap(:, :, 2) = rfmap(:, :, 1);
-%                         else
-%                             tmp = double(c.e(idx(ii)).ef(pixNum))/255;
-%                             G = tmp * exp( - (aa*(v.X-x0).^2 + 2*bb*(v.X-x0).*(v.Y-y0) + cc*(v.Y-y0).^2));
-%                             rfmap(:, :, 1)  =   rfmap(:, :, 1)  + c.ODmap(pixNum)*G;
-%                             rfmap(:, :, 2)  =   rfmap(:, :, 2)  + (1-c.ODmap(pixNum))*G;
-%                         end
-%                     end
-%                 end
-%                 if sum(rfmap(:)>0)<20
-%                     disp('WARNING! Too few pixels passed ef threshold.');
-%                     disp(' try lowering c.efthr, checking location of electrodes relative to cortical sheet & ');
-%                     disp('checking the sampling resolution of cortex');
-%                 end
-% 
-%                 v.e(idx(ii)).rfmap = rfmap./max(rfmap(:));
-%             end
-%         end
-        function [trl,v] = generate_phosphene(v, tp, trl)
-            % calculate the neural response over time across the spatial
-            % maps generated by generate_rfmap
-
-            if isnan(trl.freq); trl.maxphos = v.e(trl.e).rfmap; trl.resp = 1;% the scaling due to current integration
+        %         function [v] = generate_rfmap(c, v)
+        %             % calculates spatial phosphenes in visual space based on electrodes in
+        %             % cortical space
+        %             if ~isfield(c, 'rftype')
+        %                 c.rftype = 'rf';
+        %             end
+        %             % generates the sum of weighted receptive fields activated by an electrode
+        %             % normalized so the max is 1
+        %             idx = 1:length(v.e);
+        %             for ii = 1:length(idx)
+        %                 disp([num2str(round((100*ii)/length(idx))),  '% electrodes complete' ]);
+        %                 rfmap = zeros([size(v.X), 2]); % percept that includes a cortical model
+        %
+        %                 for pixNum = 1:length(c.X(:))
+        %                     if c.e(idx(ii)).ef(pixNum) > c.efthr * 255
+        %                         x0 = c.v2c.X(pixNum); % x center
+        %                         y0 = c.v2c.Y(pixNum); % y center
+        %                         if strcmp(c.e(idx(ii)).hemi, 'lh')
+        %                             x0=-x0; y0 = -y0;
+        %                         end
+        %                         theta = pi-c.ORmap(pixNum);  %orientation
+        %                         sigma_x = c.RFmap(pixNum) * c.ar; % major axis sd
+        %                         sigma_y = c.RFmap(pixNum); % minor axis sd
+        %
+        %                         % things you need to go from sigmas and theta to G
+        %                         aa = cos(theta)^2/(2*sigma_x^2) + sin(theta)^2/(2*sigma_y^2);
+        %                         bb = -sin(2*theta)/(4*sigma_x^2) + sin(2*theta)/(4*sigma_y^2);
+        %                         cc = sin(theta)^2/(2*sigma_x^2) + cos(theta)^2/(2*sigma_y^2);
+        %
+        %                         % oriented 2D Gaussian
+        %                         if strcmp(c.rftype, 'scoreboard')
+        %                             % scoreboard version
+        %                             tmp = double( c.e(idx(ii)).ef(pixNum))/255;
+        %                             rfmap(:, :, 1) = rfmap(:, :, 1) + (tmp * exp(-( (v.X-x0).^2/(0.01) + (v.Y-y0).^2/(.01))));
+        %                             rfmap(:, :, 2) = rfmap(:, :, 1);
+        %                         else
+        %                             tmp = double(c.e(idx(ii)).ef(pixNum))/255;
+        %                             G = tmp * exp( - (aa*(v.X-x0).^2 + 2*bb*(v.X-x0).*(v.Y-y0) + cc*(v.Y-y0).^2));
+        %                             rfmap(:, :, 1)  =   rfmap(:, :, 1)  + c.ODmap(pixNum)*G;
+        %                             rfmap(:, :, 2)  =   rfmap(:, :, 2)  + (1-c.ODmap(pixNum))*G;
+        %                         end
+        %                     end
+        %                 end
+        %                 if sum(rfmap(:)>0)<20
+        %                     disp('WARNING! Too few pixels passed ef threshold.');
+        %                     disp(' try lowering c.efthr, checking location of electrodes relative to cortical sheet & ');
+        %                     disp('checking the sampling resolution of cortex');
+        %                 end
+        %
+        %                 v.e(idx(ii)).rfmap = rfmap./max(rfmap(:));
+        %             end
+        %         end
+        function [trl,v] = generate_phosphene(v, tp, trl, varargin)
+            if isnan(trl.freq)
+                trl.maxphos = v.e(trl.e).rfmap; trl.resp = 1;% the scaling due to current integration
             else
-                if ~isfield(trl, 'resp') % calculate the response to the pulse train if not already calculated
+                if nargin==4
+                    trl.resp = varargin{1};
+                else
                     trl = p2p_c.convolve_model(tp, trl);
                 end
-                trl.maxphos = v.e(trl.e).rfmap.*max(trl.resp); %  scaling the phosphene based on neural response over time
-            end
-            trl.sim_area = (1/v.pixperdeg.^2) * sum(trl.maxphos(:) > v.drawthr)/2; % calculated area of phosphene based on mean of left and right eyes
+            end                    
+            trl.maxphos = v.e(trl.e).rfmap.*max(trl.resp);
+                % calculate the neural response over time across the spatial
+                % maps generated by generate_rfmap
+                trl.sim_area = (1/v.pixperdeg.^2) * sum(trl.maxphos(:) > v.drawthr)/2; % calculated area of phosphene based on mean of left and right eyes
 
-            if ~isempty(trl.maxphos)
-                for i=1:2 % left and right eye
-                    p = p2p_c.fit_ellipse_to_phosphene(trl.maxphos(:,:,i)>v.drawthr,v);
-                    trl.ellipse(i).x = p.x0;                            trl.ellipse(i).y = p.y0;
-                    trl.ellipse(i).sigma_x = p.sigma_x;     trl.ellipse(i).sigma_y = p.sigma_y;
-                    trl.ellipse(i).theta = p.theta;
+                if ~isempty(trl.maxphos)
+                    for i=1:2 % left and right eye
+                        p = p2p_c.fit_ellipse_to_phosphene(trl.maxphos(:,:,i)>v.drawthr,v);
+                        trl.ellipse(i).x = p.x0;                            trl.ellipse(i).y = p.y0;
+                        trl.ellipse(i).sigma_x = p.sigma_x;     trl.ellipse(i).sigma_y = p.sigma_y;
+                        trl.ellipse(i).theta = p.theta;
+                    end
+                    % what rule to use to translate phosphene image to brightness?
+
+                    beta = 6; % soft-max rule across pixels for both eyes
+                    trl.sim_brightness = ((1/v.pixperdeg.^2) * sum(trl.maxphos(:).^beta)^(1/beta));  % IF CHECK
+                else
+                    trl.sim_brightness = [];
                 end
-                % what rule to use to translate phosphene image to brightness?
-
-                beta = 6; % soft-max rule across pixels for both eyes
-                trl.sim_brightness = ((1/v.pixperdeg.^2) * sum(trl.maxphos(:).^beta)^(1/beta));  % IF CHECK
-            else
-                trl.sim_brightness = [];
             end
-        end
-        function tp = define_temporalparameters(varargin)
-            if nargin==0
-                tp = [];
-            else
-                tp = varargin{1};
+            function tp = define_temporalparameters(varargin)
+                if nargin==0
+                    tp = [];
+                else
+                    tp = varargin{1};
+                end
+                if ~isfield(tp, 'dt');       tp.dt = .001 * 10^-3; end % 001 time sampling in ms, should be no larger than 1/10 of tau1
+                if ~isfield(tp, 'tau1');   tp.tau1 =0.0003; % fixed based on Nowak and Bullier, 1998
+                end
+                if ~isfield(tp, 'tSamp');   tp.tSamp = 1000;end % subsampling to speed things up
+                % fit based on Brindley, 1968, Tehovnk 2004 estimates 0.13-0.24 ms
+                if ~isfield(tp, 'tau2');   tp.tau2 =  0.2568;  end     % 24-33 from retina
+                if ~isfield(tp, 'ncascades');  tp.ncascades = 3;   end% number of cascades in the slow filter of the temporal convolution
+                if ~isfield(tp, 'gammaflag');   tp.gammaflag = 1;   end            %  include second stage game
+
+
+                % leak out of charge accumulation
+                %   tp.flag_cl=0; % 1 if you want to charge to leak back out of the system
+                %   tp.tau2_cl = tp.tau2_ca * 8; % used for the conv model, fe uses p.tau2_ca
+
+                % nonlinearity parameters
+                if ~isfield(tp, 'model');  tp.model = 'compression'; end
+                if ~isfield(tp, 'power'); tp.power = 20.15;
+                elseif strcmp(tp.model, 'sigmoid')
+                    disp('using sigmoid semisaturation constant')
+                    tp.asymptote = 2000;
+                    tp.e50 = 500; % electrical semisaturation constant
+                elseif strcmp(tp.model, 'normcdf')
+                    disp('using normcdf semisaturation constant')
+                    tp.asymptote = 1500;
+                    tp.mean = 750;
+                    tp.sigma = 175;
+                elseif strcmp(tp.model, 'weibull')
+                    disp('using weibull semisaturation constant')
+                    tp.asymptote = 1000;
+                    tp.thresh = 600;
+                    tp.beta = 3.5;
+                end
             end
-            if ~isfield(tp, 'dt');       tp.dt = .001 * 10^-3; end % 001 time sampling in ms, should be no larger than 1/10 of tau1
-            if ~isfield(tp, 'tau1');   tp.tau1 =0.0003; % fixed based on Nowak and Bullier, 1998
-            end
-            if ~isfield(tp, 'tSamp');   tp.tSamp = 1000;end % subsampling to speed things up
-            % fit based on Brindley, 1968, Tehovnk 2004 estimates 0.13-0.24 ms
-            if ~isfield(tp, 'tau2');   tp.tau2 =  0.2568;  end     % 24-33 from retina
-            if ~isfield(tp, 'ncascades');  tp.ncascades = 3;   end% number of cascades in the slow filter of the temporal convolution
-            if ~isfield(tp, 'gammaflag');   tp.gammaflag = 1;   end            %  include second stage game
 
+            %% psychophysics
+            function [err, thresh] = loopall_find_threshold(tp,T)
+                %
+                % Runs the 'conv' model to get thresholds based on trials in the table 'T'.
+                % returns the SSE and thresholds.  Table must contain fields holding the
+                % following parameters for each trial:
+                % pw      pulse width (sec)
+                % dur     trial duration (sec)
+                % freq    pulse frequency (Hz)
+                % amp     amplitude at detection threshold
+                if ~isfield(tp, 'nReps')
+                    tp.nReps = 12;
+                end
+                thresh = NaN(1,size(T,1));
+                for i=1:size(T,1)
+                    % define trial parameters based on values in the table
+                    clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
+                    trl = p2p_c.define_trial(tp,trl);
 
-            % leak out of charge accumulation
-            %   tp.flag_cl=0; % 1 if you want to charge to leak back out of the system
-            %   tp.tau2_cl = tp.tau2_ca * 8; % used for the conv model, fe uses p.tau2_ca
+                    tp.scFacInd = 1;     % separate 'scFac' for each experiment
+                    if isfield(tp,'experimentList')  % set tp_thresh accordingly for this trial
+                        experimentNum = find(strcmp(T.experiment{i},tp.experimentList));
+                        if ~isempty(experimentNum)  % set thresh_resp for this experiment.
+                            tp.scFacInd = experimentNum;
+                        end
+                    end
+                    thresh(i)= p2p_c.find_threshold(trl,tp);
+                end
 
-            % nonlinearity parameters
-            if ~isfield(tp, 'model');  tp.model = 'compression'; end
-            if ~isfield(tp, 'power'); tp.power = 20.15;
-            elseif strcmp(tp.model, 'sigmoid')
-                disp('using sigmoid semisaturation constant')
-                tp.asymptote = 2000;
-                tp.e50 = 500; % electrical semisaturation constant
-            elseif strcmp(tp.model, 'normcdf')
-                disp('using normcdf semisaturation constant')
-                tp.asymptote = 1500;
-                tp.mean = 750;
-                tp.sigma = 175;
-            elseif strcmp(tp.model, 'weibull')
-                disp('using weibull semisaturation constant')
-                tp.asymptote = 1000;
-                tp.thresh = 600;
-                tp.beta = 3.5;
-            end
-        end
-
-        %% psychophysics
-        function [err, thresh] = loopall_find_threshold(tp,T)
-            %
-            % Runs the 'conv' model to get thresholds based on trials in the table 'T'.
-            % returns the SSE and thresholds.  Table must contain fields holding the
-            % following parameters for each trial:
-            % pw      pulse width (sec)
-            % dur     trial duration (sec)
-            % freq    pulse frequency (Hz)
-            % amp     amplitude at detection threshold
-            if ~isfield(tp, 'nReps')
-                tp.nReps = 12;
-            end
-            thresh = NaN(1,size(T,1));
-            for i=1:size(T,1)
-                % define trial parameters based on values in the table
-                clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
-                trl = p2p_c.define_trial(tp,trl);
-
-                tp.scFacInd = 1;     % separate 'scFac' for each experiment
-                if isfield(tp,'experimentList')  % set tp_thresh accordingly for this trial
-                    experimentNum = find(strcmp(T.experiment{i},tp.experimentList));
-                    if ~isempty(experimentNum)  % set thresh_resp for this experiment.
-                        tp.scFacInd = experimentNum;
+                err = nansum((thresh-T.amp').^2);
+                %    disp(sprintf('tau1 = %g, tau2 = %g, power = %5.2f err= %5.4f  scFac= %5.4f',  tp.tau1,tp.tau2,tp.power,err, tp.scFac));
+                disp(fprintf('mean = %g, sigma = %g,  err= %5.4f\n',  tp.mean,tp.sigma,err));
+                if isfield(tp,'experimentList')
+                    for i = 1:length(tp.experimentList)
+                        disp(fprintf('%10s: %g\n',tp.experimentList{i},tp.scFac(i)));
                     end
                 end
-                thresh(i)= p2p_c.find_threshold(trl,tp);
             end
-
-            err = nansum((thresh-T.amp').^2);
-            %    disp(sprintf('tau1 = %g, tau2 = %g, power = %5.2f err= %5.4f  scFac= %5.4f',  tp.tau1,tp.tau2,tp.power,err, tp.scFac));
-            disp(fprintf('mean = %g, sigma = %g,  err= %5.4f\n',  tp.mean,tp.sigma,err));
-            if isfield(tp,'experimentList')
-                for i = 1:length(tp.experimentList)
-                    disp(fprintf('%10s: %g\n',tp.experimentList{i},tp.scFac(i)));
+            function [err, thresh] = loop_find_threshold(tp,T)
+                %
+                % Runs the 'conv' model to get thresholds based on trials in the table 'T'.
+                % returns the SSE and thresholds.  Table must contain fields holding the
+                % following parameters for each trial:
+                % pw      pulse width (sec)
+                % dur     trial duration (sec)
+                % freq    pulse frequency (Hz)
+                % amp     amplitude at detection threshold
+                if ~isfield(tp, 'nReps')
+                    tp.nReps = 12;
                 end
-            end
-        end
-        function [err, thresh] = loop_find_threshold(tp,T)
-            %
-            % Runs the 'conv' model to get thresholds based on trials in the table 'T'.
-            % returns the SSE and thresholds.  Table must contain fields holding the
-            % following parameters for each trial:
-            % pw      pulse width (sec)
-            % dur     trial duration (sec)
-            % freq    pulse frequency (Hz)
-            % amp     amplitude at detection threshold
-            if ~isfield(tp, 'nReps')
-                tp.nReps = 12;
-            end
-            thresh = NaN(size(T,1), 1);
-            for i=1:size(T,1)
-                % define trial parameters based on values in the table
-                clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
-                trl = p2p_c.define_trial(tp,trl);
-                thresh(i)= p2p_c.find_threshold(trl,tp);
-            end
-            
-            if strmatch('amp',T.Properties.VariableNames)
-            err = nansum((thresh-T.amp').^2);
-            disp(sprintf('err= %5.4f',  err));
-            else
-            err = NaN;
-            end
-
-            if isfield(tp,'experimentList')
-                for i = 1:length(tp.experimentList)
-                    disp(sprintf('%10s: %g',tp.experimentList{i},tp.scFac(i)));
+                thresh = NaN(size(T,1), 1);
+                for i=1:size(T,1)
+                    % define trial parameters based on values in the table
+                    clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
+                    trl = p2p_c.define_trial(tp,trl);
+                    thresh(i)= p2p_c.find_threshold(trl,tp);
                 end
-            end
-        end
-        function err = fit_brightness(tp, T)
-            [loop_trl] = p2p_c.loop_convolve_model(tp,T);
-            y_est = [loop_trl.maxresp]; y = [T.brightness];
-            y_est = reshape(y_est, length(y), 1);
-            y = reshape(y, length(y), 1);
-            ind = ~isnan(y_est) & ~isnan(y);
-            err = -corr(y(ind), y_est(ind));
-            disp(sprintf('tau1 =%5.4f, tau2 =%5.4f, power =%5.4f, corr = %5.4f',  tp.tau1, tp.tau2, tp.power,-err));
-        end
 
-        function [loop_trl] = loop_convolve_model(tp,T)
-            %
-            % Runs the 'conv' model to get thresholds based on trials in the table 'T'.
-            % returns the SSE and thresholds.  Table must contain fields holding the
-            % following parameters for each trial:
-            % pw      pulse width (sec)
-            % dur     trial duration (sec)
-            % freq    pulse frequency (Hz)
-            % amp     amplitude at detection threshold
+                if strmatch('amp',T.Properties.VariableNames)
+                    err = nansum((thresh-T.amp').^2);
+                    disp(sprintf('err= %5.4f',  err));
+                else
+                    err = NaN;
+                end
 
-            for i=1:size(T,1)
-                % define trial parameters based on values in the table
-                clear trl;  trl.pw = T.pw(i);   trl.amp = T.amp(i);    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
-                trl = p2p_c.define_trial(tp,trl);
-
-                % define impulse response
-                if isfield(tp,'tSamp')
-                    if tp.tSamp~=1% down-sample the time-vectors
-                        t = trl.t(1:tp.tSamp:end);
+                if isfield(tp,'experimentList')
+                    for i = 1:length(tp.experimentList)
+                        disp(sprintf('%10s: %g',tp.experimentList{i},tp.scFac(i)));
                     end
-                else
-                    t = trl.t;
-                end
-                dt = t(2)-t(1);
-                h = p2p_c.gamma(tp.ncascades,tp.tau2,t);            % Generate the n-cascade impulse response
-                tid = find(cumsum(h)*dt>.999,1,'first'); % Shorten the filter if needed to speed up the code.
-                if ~isempty(tid)
-                    h = h(1:tid);
-                else
-                    sprintf('Warning: gamma hdr might not have a long enough time vector');
-                end
-                trl.imp_resp = h;  % close enough to use h
-                loop_trl(i) = p2p_c.convolve_model(tp, trl);
-            end
-        end
-        function amp = find_threshold(trl, tp)
-            % Find amplitudes at threshold with the convolve model.
-            % takes in trial, tp, and optional fitParams
-            % finds and returns the trl.amp for which the max output of the
-            % model for that trial, trial.resp, is equal to fitParams.thr
-
-            if ~isfield(tp, 'nReps')
-                tp.nReps = 12;
-            end
-            % first find the lowest 'hi' response
-            hi = 1;
-            resp = 0;
-            while resp<tp.thresh_resp
-                hi = hi*2;
-                trl.amp = hi;
-                trl = p2p_c.define_trial(tp,trl);
-                trl = p2p_c.convolve_model(tp, trl);
-                if tp.gammaflag
-                    resp = max(trl.resp);
-                elseif  tp.probsumflag
-                    resp = trl.pd;
                 end
             end
-            lo = 0;
-            % then do the binary search
-            for i = 1:tp.nReps
-                trl.amp  = (hi+lo)/2;
-                trl = p2p_c.define_trial(tp,trl);
-                trl = p2p_c.convolve_model(tp, trl);
-
-                if max(trl.resp(:)) > tp.thresh_resp
-                    hi = trl.amp;
-                else
-                    lo = trl.amp;
-                end
+            function err = fit_brightness(tp, T)
+                [loop_trl] = p2p_c.loop_convolve_model(tp,T);
+                y_est = [loop_trl.maxresp]; y = [T.brightness];
+                y_est = reshape(y_est, length(y), 1);
+                y = reshape(y, length(y), 1);
+                ind = ~isnan(y_est) & ~isnan(y);
+                err = -corr(y(ind), y_est(ind));
+                disp(sprintf('tau1 =%5.4f, tau2 =%5.4f, power =%5.4f, corr = %5.4f',  tp.tau1, tp.tau2, tp.power,-err));
             end
-            amp = (hi+lo)/2;
-        end
-        function trl = convolve_model(tp, trl)
-            % Implements 'finite_element' using the closed-form solution to
-            % the respose to a pluse   Can be faster than 'finite_element'.
-            % Assumes square pulse trains.
-            %
-            % tSamp is the temporal sub-sampling factor. Since tau2 is
-            % relatively long, we can get away with a coarser temporal
-            % sampling for the last convolution stage.  tSamp of 1000 works
-            % well. Advise comparing to tSamp = 1 to check for innacuracy.
-            % Also advise comparing 'convolve_model' to 'finite_element'
-            % model which should be consiered the ground truth.
-            %
-            % Note: model only returns 'R3', 'spike' and 'resp' as output.
-            % R1 and R2 (rectified R1) timecourses are not generated, so
-            % the R2 of 'simpleleakyintegrator' has to obtained through the
-            % 'finite_element' function.
-            %
-            % 'tt' is also returned, which is the temporally subsampled 't'
-            % vector. Good for plotting 'spike' and 'resp'.
 
-            % written GMB 6/17/2022
+            function [loop_trl] = loop_convolve_model(tp,T)
+                %
+                % Runs the 'conv' model to get thresholds based on trials in the table 'T'.
+                % returns the SSE and thresholds.  Table must contain fields holding the
+                % following parameters for each trial:
+                % pw      pulse width (sec)
+                % dur     trial duration (sec)
+                % freq    pulse frequency (Hz)
+                % amp     amplitude at detection threshold
 
-            % Assume the pulse train, pt, is a sequence of discrete jumps
-            % in current. Find the 'events' where the pulse train, pt,
-            % jumps up or down.
-            %     Rconvtmp =  zeros(1,tp.ncascades+1); CHECK WITH GEOFF
+                for i=1:size(T,1)
+                    % define trial parameters based on values in the table
+                    clear trl;  trl.pw = T.pw(i);   trl.amp = T.amp(i);    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
+                    trl = p2p_c.define_trial(tp,trl);
 
-            % Since spikes are sparse, manually convolve the 'spikes' with
-            % the impulse response function at lowet temporal
-            % resolution
-
-            if isfield(tp,'tSamp')
-                if tp.tSamp~=1% down-sample the time-vectors
-                    t = trl.t(1:tp.tSamp:end);
-                end
-            else
-                t = trl.t;
-            end
-            ptid = find(diff(trl.pt))+1;
-
-            % R will hold the values of R1 at the event times.
-
-
-            Rtmp = zeros(1,length(ptid));
-            wasRising = 0;
-            % Loop through the events, calculating R1 at the end of the event
-            % and add impulse responses when R1 peaks and is after the refractory period.
-            spikeId = zeros(size(Rtmp));
-            for i=1:(length(ptid)-1)
-                tNow = trl.t(ptid(i+1));
-                delta = trl.t(ptid(i+1))-trl.t(ptid(i));  % time since last 'event'
-                % Closed form solution to leaky integrator that predicts
-                % R(i+1) from R(i), delta and tau1:
-                Rtmp(i+1) = trl.pt(ptid(i))*tp.tau1*(1-exp(-delta/tp.tau1)) + ...
-                    Rtmp(i)*exp(-delta/tp.tau1);
-
-                % Add a spike if:
-                % (1) R1 is going down since last event
-                % (2) R1 was going up before that, and
-                % (3) we're past the refractory period since the last spike
-                if Rtmp(i+1)<Rtmp(i) && wasRising
-                    spikeId(i) = 1; % check spike id identical in both loops IF CHECK
-                    wasRising = 0;  % no longer rising
-                    lastSpikeTime = trl.t(ptid(i+1));
-                else
-                    wasRising =1;
-                end
-            end
-            R1= Rtmp*1000;
-            R1(R1<0)=0;
-            trl.spikes = R1;
-            if tp.gammaflag
-                if ~isfield(trl, 'imp_resp')
+                    % define impulse response
+                    if isfield(tp,'tSamp')
+                        if tp.tSamp~=1% down-sample the time-vectors
+                            t = trl.t(1:tp.tSamp:end);
+                        end
+                    else
+                        t = trl.t;
+                    end
                     dt = t(2)-t(1);
                     h = p2p_c.gamma(tp.ncascades,tp.tau2,t);            % Generate the n-cascade impulse response
                     tid = find(cumsum(h)*dt>.999,1,'first'); % Shorten the filter if needed to speed up the code.
@@ -725,231 +604,352 @@ classdef p2p_c
                         sprintf('Warning: gamma hdr might not have a long enough time vector');
                     end
                     trl.imp_resp = h;  % close enough to use h
+                    loop_trl(i) = p2p_c.convolve_model(tp, trl);
                 end
-                impFrames = [0:(length(trl.imp_resp)-1)];
-                resp = zeros(1,length(t)+length(trl.imp_resp));        % zero stuff out
-                for i=1:length(trl.spikes)
-                    if spikeId(i)
-                        id = find(t>trl.t(ptid(i)),1,'first');
-                        resp(id+impFrames)  =   ...
-                            resp(id+impFrames) + trl.spikes(i)*trl.imp_resp;
+            end
+            function amp = find_threshold(trl, tp)
+                % Find amplitudes at threshold with the convolve model.
+                % takes in trial, tp, and optional fitParams
+                % finds and returns the trl.amp for which the max output of the
+                % model for that trial, trial.resp, is equal to fitParams.thr
+
+                if ~isfield(tp, 'nReps')
+                    tp.nReps = 12;
+                end
+                % first find the lowest 'hi' response
+                hi = 1;
+                resp = 0;
+                while resp<tp.thresh_resp
+                    hi = hi*2;
+                    trl.amp = hi;
+                    trl = p2p_c.define_trial(tp,trl);
+                    trl = p2p_c.convolve_model(tp, trl);
+                    if tp.gammaflag
+                        resp = max(trl.resp);
+                    elseif  tp.probsumflag
+                        resp = trl.pd;
                     end
                 end
-                resp = p2p_c.nonlinearity(tp, resp);
-                trl.maxresp = max(resp); % detection when maxresp goes above a threshold
-            else
-                resp= trl.spikes;
-                trl.maxresp = max(resp);
-            end
-            % save the time-course of the response for output
-            trl.resp = resp(1:length(t));
-            trl.tt = t;  % for plotting
-        end
+                lo = 0;
+                % then do the binary search
+                for i = 1:tp.nReps
+                    trl.amp  = (hi+lo)/2;
+                    trl = p2p_c.define_trial(tp,trl);
+                    trl = p2p_c.convolve_model(tp, trl);
 
-
-        %% utilities
-        function out=chronaxie(p,pw)
-            out = p.amp./(p.tau*(1-exp(-pw/p.tau)));
-        end
-
-        function y=gamma(n,k,t)
-            %   y=gamma(n,k,t)
-            %   returns a gamma function on vector t
-            %   y=(t/k).^(n-1).*exp(-t/k)/(k*factorial(n-1));
-            %   which is the result of an n stage leaky integrator.
-
-            %   6/27/95 Written by G.M. Boynton at Stanford University
-            %   4/19/09 Simplified it for Psychology 448/538 at U.W.
-            %
-            y = (t/k).^(n-1).*exp(-t/k)/(k*factorial(n-1));
-            y(t<0) = 0;
-        end
-        function y = nonlinearity(tp,x)
-            if ~isfield(tp, 'scFac');    scFac = 1;
-            else scFac  =  tp.scFac; end
-            % some of our favorite static nonlinearities:
-            switch tp.model
-                case 'sigmoid'
-                    y = scFac .* x.^tp.power./(x.^tp.power + tp.sigma.^2);
-                case 'normcdf'
-                    y = normcdf(x, tp.mean, tp.sigma);
-                    y(y<0) = 0;
-                case 'weibull'
-                    y = scFac*p2p_c.weibull(tp,x);
-                case 'power'
-                    y = scFac*x.^tp.power;
-                case 'exp'
-                    y = scFac*x.^tp.k;
-                case 'compression'
-                    y = tp.power.*tanh(x/tp.power);
-                case 'linear'
-                    y = x;
-            end
-        end
-        function [p] = weibull(params, x)
-            % [p] = Weibull(params, x)
-            %
-            % The Weibull function based on this equation:
-            %
-            % k = (-log((1-e)/(1-g)))^(1/b)
-            % f(x) = 1 - ((1-g) * exp(-(k*x/t).^b))
-            %
-            % Where g is performance expected at chance, e is performance level that
-            % defines the threshold, b is the slope of the Weibull function, and t is
-            % the threshold
-            %
-            % Inputs:
-            %   params      A structure containing the parameters of the Weibull
-            %               function:
-            %       b       Slope
-            %       t       Stimulus intensity threshold as defined by 'params.e'.
-            %               When x = 'params.t', then y = 'params.e'
-            %       g       Performance expected at chance, proportion
-            %       e       Threshold performance, proportion
-            %
-            %   x           Intensity values of the stimuli
-            %
-            % Output:
-            %   p           Output of the Weibull function as a function of the
-            %               intensity values, x
-
-            % Written by G.M. Boynton - 11/13/2007
-            % Edited by Kelly Chang - February 13, 2017
-            % Edited by Ione Fine - February 22, 2017
-
-            if ~isfield(params, 'g')
-                params.g = 0.5;
-            end
-            if ~isfield(params, 'e')
-                params.e = (0.5)^(1/3);
-            end
-            k = (-log((1-params.e)/(1-params.g)))^(1/params.b);
-            p = 1 - ((1-params.g) * exp(-(k*x/params.t).^params.b));
-        end
-
-        %% transforms
-        % transforms
-        function c2v_out = c2v(c, z)
-            % takes in imaginary numbers, and finds out where cortical values are in visual space (map)
-            c2v_out = c.k*log(z + c.a);
-        end
-        function v2c_out = v2c(c, z)
-            % takes in imaginary numbers, places visual values into the cortical grid (mapinv)
-            v2c_out = exp(z/c.k)-c.a;
-        end
-
-        %% plotting functions
-        % plotting functions
-        function plotcortgrid(img, c,  varargin)
-            % plotcortgrid(img, c)
-            % plotcortgrid(img, c, cmap,figNum, evalstr)
-            % takes as input:
-            %   cortical image
-            %   the structure c that defines the cortical surface
-            % optional arguments:
-            %   colormap, figure number and a string to evaluate
-            %  (e.g. ''title('''corticalsurface''')' or 'subplot(1, 2,1)';
-
-            if nargin<3 || isempty(varargin{1});  cmap = gray(256);   else cmap = varargin{1}; end
-            if nargin<4 || isempty(varargin{2}); figNum = 1;        else figNum = varargin{2}; end
-            if nargin<5 || isempty(varargin{3});  evalstr = '';      else evalstr = varargin{3}; end
-
-            if isfield(c,'cropPix')
-                img(c.cropPix) = NaN;
-                img= img+2;
-                cmap = [0,0,0;cmap];
-            end
-
-            fH=figure(figNum);
-            eval(evalstr); colormap(cmap);
-            if ~isempty(img)
-                image(c.x, c.y, img); hold on
-            end
-            xlabel('mm'); ylabel('mm')
-            set(gca,'YDir','normal');
-            plot(c.v2c.gridAngZ, '-', 'Color', c.gridColor);
-            plot(c.v2c.gridEccZ, '-', 'Color', c.gridColor);
-
-            axis equal;  axis tight
-            set(gca,'XLim',[min(c.x(:)),max(c.x(:))]);
-            set(gca,'YLim',[min(c.y(:)),max(c.y(:))]);
-            drawnow;
-        end
-        function plotretgrid(img, v, varargin)
-            % plotretgrid(img, c)
-            % plotretgrid(img, c, cmap,figNum, evalstr)
-            % takes as input:
-            %   retinal image
-            %   the structure v that defines the retinal surface
-            % optional arguments:
-            %   colormap, figure number and a string to evaluate
-            %  (e.g. ''title('''corticalsurface''')' or 'subplot(1, 2,1)';
-
-            if nargin<3 || isempty(varargin{1});  cmap = gray(256);   else; cmap = varargin{1}; end
-            if nargin<4 || isempty(varargin{2});  figNum = 1;        else; figNum = varargin{2}; end
-            if nargin<5 || isempty(varargin{3});  evalstr = '';      else; evalstr = varargin{3}; end
-
-            fH=figure(figNum); hold on
-            eval(evalstr);
-            image(v.x, v.y, img); hold on
-
-            colormap(cmap); set(gca,'YDir','normal');
-
-            plot(v.zAng,'-','Color', v.gridColor); plot(v.zEcc,'-','Color', v.gridColor);
-            plot(-v.zAng,'-','Color', v.gridColor); plot(-v.zEcc,'-','Color', v.gridColor);
-
-            axis equal;  axis tight
-            xlabel('degrees'); ylabel('degrees')
-            set(gca,'XLim',[min(v.x(:)),max(v.x(:))]);
-            set(gca,'YLim',[min(v.y(:)),max(v.y(:))]);
-            drawnow;
-        end
-        function p = fit_ellipse_to_phosphene(img,v)
-            M00 = sum(sum(img));
-            M10 = sum(sum(v.X.*img));           M01 = sum(sum(v.Y.*img));         M11 = sum(sum(v.X.*v.Y.*img));
-            M20 = sum(sum(v.X.^2.*img));          M02 = sum(sum(v.Y.^2.*img));
-            p.x0 = M10/M00;         p.y0 = M01/M00;
-            mu20 = M20/M00 - p.x0^2;      mu02 = M02/M00 - p.y0^2;             mu11 = M11/M00 - p.x0*p.y0;
-            a = (mu20+mu02)/2;         b = .5*sqrt(4*mu11^2+(mu20-mu02)^2);
-            lambda_1 = a+b;      lambda_2 = a-b;
-            p.theta = -.5*atan2(2*mu11,mu20-mu02);
-            p.sigma_x = 2*sqrt(lambda_1);        p.sigma_y = 2*sqrt(lambda_2);
-        end
-        function fillSymbols(h,colList)
-            if ~exist('h', 'var');     h = get(gca,'Children');    end
-            for i=1:length(h)
-                if ~exist('colList','var');       col = get(h(i),'Color');
-                else
-                    if iscell(colList); col = colList{i};
-                    else;     col = colList(i,:);  end
+                    if max(trl.resp(:)) > tp.thresh_resp
+                        hi = trl.amp;
+                    else
+                        lo = trl.amp;
+                    end
                 end
-                set(h(i),'MarkerFaceColor',col);
+                amp = (hi+lo)/2;
             end
-        end
-   function draw_ellipse(trl, figNum, spstr, varargin)
-            figure(figNum); hold on
-            eval(spstr);
-            if nargin >3
-                eye = varargin{1};
-            else
-                eye = 1;
+            function trl = convolve_model(tp, trl)
+                % Implements 'finite_element' using the closed-form solution to
+                % the respose to a pluse   Can be faster than 'finite_element'.
+                % Assumes square pulse trains.
+                %
+                % tSamp is the temporal sub-sampling factor. Since tau2 is
+                % relatively long, we can get away with a coarser temporal
+                % sampling for the last convolution stage.  tSamp of 1000 works
+                % well. Advise comparing to tSamp = 1 to check for innacuracy.
+                % Also advise comparing 'convolve_model' to 'finite_element'
+                % model which should be consiered the ground truth.
+                %
+                % Note: model only returns 'R3', 'spike' and 'resp' as output.
+                % R1 and R2 (rectified R1) timecourses are not generated, so
+                % the R2 of 'simpleleakyintegrator' has to obtained through the
+                % 'finite_element' function.
+                %
+                % 'tt' is also returned, which is the temporally subsampled 't'
+                % vector. Good for plotting 'spike' and 'resp'.
+
+                % written GMB 6/17/2022
+
+                % Assume the pulse train, pt, is a sequence of discrete jumps
+                % in current. Find the 'events' where the pulse train, pt,
+                % jumps up or down.
+                %     Rconvtmp =  zeros(1,tp.ncascades+1); CHECK WITH GEOFF
+
+                % Since spikes are sparse, manually convolve the 'spikes' with
+                % the impulse response function at lowet temporal
+                % resolution
+
+                if isfield(tp,'tSamp')
+                    if tp.tSamp~=1% down-sample the time-vectors
+                        t = trl.t(1:tp.tSamp:end);
+                    end
+                else
+                    t = trl.t;
+                end
+                ptid = find(diff(trl.pt))+1;
+
+                % Rtmp will hold the values of R1 at the event times.
+                Rtmp = zeros(1,length(ptid));
+                wasRising = 0;
+                % Loop through the events, calculating R1 at the end of the event
+                % and add impulse responses when R1 peaks and is after the refractory period.
+                spikeId = zeros(size(Rtmp));
+                for i=1:(length(ptid)-1)
+                    tNow = trl.t(ptid(i+1));
+                    delta = trl.t(ptid(i+1))-trl.t(ptid(i));  % time since last 'event'
+                    % Closed form solution to leaky integrator that predicts
+                    % R(i+1) from R(i), delta and tau1:
+                    Rtmp(i+1) = trl.pt(ptid(i))*tp.tau1*(1-exp(-delta/tp.tau1)) + ...
+                        Rtmp(i)*exp(-delta/tp.tau1);
+
+                    % Add a spike if:
+                    % (1) R1 is going down since last event
+                    % (2) R1 was going up before that, and
+                    % (3) we're past the refractory period since the last spike
+                    if Rtmp(i+1)<Rtmp(i) && wasRising
+                        spikeId(i) = 1; % check spike id identical in both loops IF CHECK
+                        wasRising = 0;  % no longer rising
+                        lastSpikeTime = trl.t(ptid(i+1));
+                    else
+                        wasRising =1;
+                    end
+                end
+                R1= Rtmp*1000;
+                R1(R1<0)=0;
+                trl.spikes = R1;
+                if tp.gammaflag
+                    if ~isfield(trl, 'imp_resp')
+                        dt = t(2)-t(1);
+                        h = p2p_c.gamma(tp.ncascades,tp.tau2,t);            % Generate the n-cascade impulse response
+                        tid = find(cumsum(h)*dt>.999,1,'first'); % Shorten the filter if needed to speed up the code.
+                        if ~isempty(tid)
+                            h = h(1:tid);
+                        else
+                            sprintf('Warning: gamma hdr might not have a long enough time vector');
+                        end
+                        trl.imp_resp = h;  % close enough to use h
+                    end
+                    impFrames = [0:(length(trl.imp_resp)-1)];
+                    resp = zeros(1,length(t)+length(trl.imp_resp));        % zero stuff out
+                    for i=1:length(trl.spikes)
+                        if spikeId(i)
+                            id = find(t>trl.t(ptid(i)),1,'first');
+                            resp(id+impFrames)  =   ...
+                                resp(id+impFrames) + trl.spikes(i)*trl.imp_resp;
+                        end
+                    end
+                    resp = p2p_c.nonlinearity(tp, resp);
+                    trl.maxresp = max(resp); % detection when maxresp goes above a threshold
+                else
+                    resp= trl.spikes;
+                    trl.maxresp = max(resp);
+                end
+                % save the time-course of the response for output
+                trl.resp = resp(1:length(t));
+                trl.tt = t;  % for plotting
             end
-            
-            if nargin>4
-                lineColor = varargin{2};
-            else
-                lineColor = 'g';
+
+
+            %% utilities
+            function out=chronaxie(p,pw)
+                out = p.amp./(p.tau*(1-exp(-pw/p.tau)));
             end
-            theta = linspace(-pi,pi,101);
-            
-            for e=1:length(eye)
-                r = sqrt( (trl.ellipse(eye(e)).sigma_x*trl.ellipse(eye(e)).sigma_y)^2./ ...
-                    (trl.ellipse(eye(e)).sigma_y^2*cos(theta).^2 + trl.ellipse(eye(e)).sigma_x^2*sin(theta).^2));
-                x = trl.ellipse(eye(e)).x+r.*cos(theta-trl.ellipse(eye(e)).theta);
-                y = trl.ellipse(eye(e)).y+r.*sin(theta-trl.ellipse(eye(e)).theta);
-                plot(x,y,'-','LineWidth',1,'Color',lineColor);
+
+            function y=gamma(n,k,t)
+                %   y=gamma(n,k,t)
+                %   returns a gamma function on vector t
+                %   y=(t/k).^(n-1).*exp(-t/k)/(k*factorial(n-1));
+                %   which is the result of an n stage leaky integrator.
+
+                %   6/27/95 Written by G.M. Boynton at Stanford University
+                %   4/19/09 Simplified it for Psychology 448/538 at U.W.
+                %
+                y = (t/k).^(n-1).*exp(-t/k)/(k*factorial(n-1));
+                y(t<0) = 0;
             end
-            
+            function y = nonlinearity(tp,x)
+                if ~isfield(tp, 'scFac');    scFac = 1;
+                else scFac  =  tp.scFac; end
+                % some of our favorite static nonlinearities:
+                switch tp.model
+                    case 'sigmoid'
+                        y = scFac .* x.^tp.power./(x.^tp.power + tp.sigma.^2);
+                    case 'normcdf'
+                        y = normcdf(x, tp.mean, tp.sigma);
+                        y(y<0) = 0;
+                    case 'weibull'
+                        y = scFac*p2p_c.weibull(tp,x);
+                    case 'power'
+                        y = scFac*x.^tp.power;
+                    case 'exp'
+                        y = scFac*x.^tp.k;
+                    case 'compression'
+                        y = tp.power.*tanh(x/tp.power);
+                    case 'linear'
+                        y = x;
+                end
+            end
+            function [p] = weibull(params, x)
+                % [p] = Weibull(params, x)
+                %
+                % The Weibull function based on this equation:
+                %
+                % k = (-log((1-e)/(1-g)))^(1/b)
+                % f(x) = 1 - ((1-g) * exp(-(k*x/t).^b))
+                %
+                % Where g is performance expected at chance, e is performance level that
+                % defines the threshold, b is the slope of the Weibull function, and t is
+                % the threshold
+                %
+                % Inputs:
+                %   params      A structure containing the parameters of the Weibull
+                %               function:
+                %       b       Slope
+                %       t       Stimulus intensity threshold as defined by 'params.e'.
+                %               When x = 'params.t', then y = 'params.e'
+                %       g       Performance expected at chance, proportion
+                %       e       Threshold performance, proportion
+                %
+                %   x           Intensity values of the stimuli
+                %
+                % Output:
+                %   p           Output of the Weibull function as a function of the
+                %               intensity values, x
+
+                % Written by G.M. Boynton - 11/13/2007
+                % Edited by Kelly Chang - February 13, 2017
+                % Edited by Ione Fine - February 22, 2017
+
+                if ~isfield(params, 'g')
+                    params.g = 0.5;
+                end
+                if ~isfield(params, 'e')
+                    params.e = (0.5)^(1/3);
+                end
+                k = (-log((1-params.e)/(1-params.g)))^(1/params.b);
+                p = 1 - ((1-params.g) * exp(-(k*x/params.t).^params.b));
+            end
+
+            %% transforms
+            % transforms
+            function c2v_out = c2v(c, z)
+                % takes in imaginary numbers, and finds out where cortical values are in visual space (map)
+                c2v_out = c.k*log(z + c.a);
+            end
+            function v2c_out = v2c(c, z)
+                % takes in imaginary numbers, places visual values into the cortical grid (mapinv)
+                v2c_out = exp(z/c.k)-c.a;
+            end
+
+            %% plotting functions
+            % plotting functions
+            function plotcortgrid(img, c,  varargin)
+                % plotcortgrid(img, c)
+                % plotcortgrid(img, c, cmap,figNum, evalstr)
+                % takes as input:
+                %   cortical image
+                %   the structure c that defines the cortical surface
+                % optional arguments:
+                %   colormap, figure number and a string to evaluate
+                %  (e.g. ''title('''corticalsurface''')' or 'subplot(1, 2,1)';
+
+                if nargin<3 || isempty(varargin{1});  cmap = gray(256);   else cmap = varargin{1}; end
+                if nargin<4 || isempty(varargin{2}); figNum = 1;        else figNum = varargin{2}; end
+                if nargin<5 || isempty(varargin{3});  evalstr = '';      else evalstr = varargin{3}; end
+
+                if isfield(c,'cropPix')
+                    img(c.cropPix) = NaN;
+                    img= img+2;
+                    cmap = [0,0,0;cmap];
+                end
+
+                fH=figure(figNum);
+                eval(evalstr); colormap(cmap);
+                if ~isempty(img)
+                    image(c.x, c.y, img); hold on
+                end
+                xlabel('mm'); ylabel('mm')
+                set(gca,'YDir','normal');
+                plot(c.v2c.gridAngZ, '-', 'Color', c.gridColor);
+                plot(c.v2c.gridEccZ, '-', 'Color', c.gridColor);
+
+                axis equal;  axis tight
+                set(gca,'XLim',[min(c.x(:)),max(c.x(:))]);
+                set(gca,'YLim',[min(c.y(:)),max(c.y(:))]);
+                drawnow;
+            end
+            function plotretgrid(img, v, varargin)
+                % plotretgrid(img, c)
+                % plotretgrid(img, c, cmap,figNum, evalstr)
+                % takes as input:
+                %   retinal image
+                %   the structure v that defines the retinal surface
+                % optional arguments:
+                %   colormap, figure number and a string to evaluate
+                %  (e.g. ''title('''corticalsurface''')' or 'subplot(1, 2,1)';
+
+                if nargin<3 || isempty(varargin{1});  cmap = gray(256);   else; cmap = varargin{1}; end
+                if nargin<4 || isempty(varargin{2});  figNum = 1;        else; figNum = varargin{2}; end
+                if nargin<5 || isempty(varargin{3});  evalstr = '';      else; evalstr = varargin{3}; end
+
+                fH=figure(figNum); hold on
+                eval(evalstr);
+                image(v.x, v.y, img); hold on
+
+                colormap(cmap); set(gca,'YDir','normal');
+
+                plot(v.zAng,'-','Color', v.gridColor); plot(v.zEcc,'-','Color', v.gridColor);
+                plot(-v.zAng,'-','Color', v.gridColor); plot(-v.zEcc,'-','Color', v.gridColor);
+
+                axis equal;  axis tight
+                xlabel('degrees'); ylabel('degrees')
+                set(gca,'XLim',[min(v.x(:)),max(v.x(:))]);
+                set(gca,'YLim',[min(v.y(:)),max(v.y(:))]);
+                drawnow;
+            end
+            function p = fit_ellipse_to_phosphene(img,v)
+                M00 = sum(sum(img));
+                M10 = sum(sum(v.X.*img));           M01 = sum(sum(v.Y.*img));         M11 = sum(sum(v.X.*v.Y.*img));
+                M20 = sum(sum(v.X.^2.*img));          M02 = sum(sum(v.Y.^2.*img));
+                p.x0 = M10/M00;         p.y0 = M01/M00;
+                mu20 = M20/M00 - p.x0^2;      mu02 = M02/M00 - p.y0^2;             mu11 = M11/M00 - p.x0*p.y0;
+                a = (mu20+mu02)/2;         b = .5*sqrt(4*mu11^2+(mu20-mu02)^2);
+                lambda_1 = a+b;      lambda_2 = a-b;
+                p.theta = -.5*atan2(2*mu11,mu20-mu02);
+                p.sigma_x = 2*sqrt(lambda_1);        p.sigma_y = 2*sqrt(lambda_2);
+            end
+            function fillSymbols(h,colList)
+                if ~exist('h', 'var');     h = get(gca,'Children');    end
+                for i=1:length(h)
+                    if ~exist('colList','var');       col = get(h(i),'Color');
+                    else
+                        if iscell(colList); col = colList{i};
+                        else;     col = colList(i,:);  end
+                    end
+                    set(h(i),'MarkerFaceColor',col);
+                end
+            end
+            function draw_ellipse(trl, figNum, spstr, varargin)
+                figure(figNum); hold on
+                eval(spstr);
+                if nargin >3
+                    eye = varargin{1};
+                else
+                    eye = 1;
+                end
+
+                if nargin>4
+                    lineColor = varargin{2};
+                else
+                    lineColor = 'g';
+                end
+                theta = linspace(-pi,pi,101);
+
+                for e=1:length(eye)
+                    r = sqrt( (trl.ellipse(eye(e)).sigma_x*trl.ellipse(eye(e)).sigma_y)^2./ ...
+                        (trl.ellipse(eye(e)).sigma_y^2*cos(theta).^2 + trl.ellipse(eye(e)).sigma_x^2*sin(theta).^2));
+                    x = trl.ellipse(eye(e)).x+r.*cos(theta-trl.ellipse(eye(e)).theta);
+                    y = trl.ellipse(eye(e)).y+r.*sin(theta-trl.ellipse(eye(e)).theta);
+                    plot(x,y,'-','LineWidth',1,'Color',lineColor);
+                end
+
+            end
         end
     end
-end
