@@ -34,7 +34,6 @@ classdef p2p_c
             trl.CperTrial = (trl.amp/1000) * trl.dur * trl.freq * trl.pw*10.^3; % charge per trial
             trl.CperPulse = trl.pw * trl.amp/1000; % charge per pulse
         end
-
         function trl = generate_pt(trl, tp)
             if isnan(trl.freq)
                 % if all you are interested in is space then don't use a
@@ -458,14 +457,15 @@ classdef p2p_c
                     tp = varargin{1};
                 end
                 if ~isfield(tp, 'dt');       tp.dt = .001 * 10^-3; end % 001 time sampling in ms, should be no larger than 1/10 of tau1
-                if ~isfield(tp, 'tau1');   tp.tau1 =0.0003; % fixed based on Nowak and Bullier, 1998
-                end
+                if ~isfield(tp, 'tau1');   tp.tau1 =0.0003; end % fixed based on Nowak and Bullier, 1998
+                if ~isfield(tp, 'refrac');   tp.refrac = 50 ; end % refractory period for spikes
+                 if ~isfield(tp, 'delta');   tp.delta = 0.001 ; end % decay parameter for refractory period
+                
                 if ~isfield(tp, 'tSamp');   tp.tSamp = 1000;end % subsampling to speed things up
                 % fit based on Brindley, 1968, Tehovnk 2004 estimates 0.13-0.24 ms
-                if ~isfield(tp, 'tau2');   tp.tau2 =  0.2568;  end     % 24-33 from retina
+                if ~isfield(tp, 'tau2');   tp.tau2 =  0.15;  end     % 24-33 from retina  
                 if ~isfield(tp, 'ncascades');  tp.ncascades = 3;   end% number of cascades in the slow filter of the temporal convolution
                 if ~isfield(tp, 'gammaflag');   tp.gammaflag = 1;   end            %  include second stage game
-
 
                 % leak out of charge accumulation
                 %   tp.flag_cl=0; % 1 if you want to charge to leak back out of the system
@@ -507,7 +507,7 @@ classdef p2p_c
                 thresh = NaN(1,size(T,1));
                 for i=1:size(T,1)
                     % define trial parameters based on values in the table
-                    clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
+                    clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 3; %sec
                     trl = p2p_c.define_trial(tp,trl);
 
                     tp.scFacInd = 1;     % separate 'scFac' for each experiment
@@ -544,7 +544,7 @@ classdef p2p_c
                 thresh = NaN(size(T,1), 1);
                 for i=1:size(T,1)
                     % define trial parameters based on values in the table
-                    clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
+                    clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 3; %sec
                     trl = p2p_c.define_trial(tp,trl);
                     thresh(i)= p2p_c.find_threshold(trl,tp);
                 end
@@ -584,7 +584,7 @@ classdef p2p_c
 
                 for i=1:size(T,1)
                     % define trial parameters based on values in the table
-                    clear trl;  trl.pw = T.pw(i);   trl.amp = T.amp(i);    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 1; %sec
+                    clear trl;  trl.pw = T.pw(i);   trl.amp = T.amp(i);    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 3; %sec
                     trl = p2p_c.define_trial(tp,trl);
 
                     % define impulse response
@@ -646,105 +646,110 @@ classdef p2p_c
                 amp = (hi+lo)/2;
             end
             function trl = convolve_model(tp, trl)
-                % Implements 'finite_element' using the closed-form solution to
-                % the respose to a pluse   Can be faster than 'finite_element'.
-                % Assumes square pulse trains.
-                %
-                % tSamp is the temporal sub-sampling factor. Since tau2 is
-                % relatively long, we can get away with a coarser temporal
-                % sampling for the last convolution stage.  tSamp of 1000 works
-                % well. Advise comparing to tSamp = 1 to check for innacuracy.
-                % Also advise comparing 'convolve_model' to 'finite_element'
-                % model which should be consiered the ground truth.
-                %
-                % Note: model only returns 'R3', 'spike' and 'resp' as output.
-                % R1 and R2 (rectified R1) timecourses are not generated, so
-                % the R2 of 'simpleleakyintegrator' has to obtained through the
-                % 'finite_element' function.
-                %
-                % 'tt' is also returned, which is the temporally subsampled 't'
-                % vector. Good for plotting 'spike' and 'resp'.
+            % Implements 'finite_element' using the closed-form solution to
+            % the respose to a pluse   Can be faster than 'finite_element'.
+            % Assumes square pulse trains.
+            %
+            % tSamp is the temporal sub-sampling factor. Since tau2 is
+            % relatively long, we can get away with a coarser temporal
+            % sampling for the last convolution stage.  tSamp of 1000 works
+            % well. Advise comparing to tSamp = 1 to check for innacuracy.
+            % Also advise comparing 'convolve_model' to 'finite_element'
+            % model which should be consiered the ground truth.
+            %
+            % Note: model only returns 'R3', 'spike' and 'resp' as output.
+            % R1 and R2 (rectified R1) timecourses are not generated, so
+            % the R2 of 'simpleleakyintegrator' has to obtained through the
+            % 'finite_element' function.
+            %
+            % 'tt' is also returned, which is the temporally subsampled 't'
+            % vector. Good for plotting 'spike' and 'resp'.
 
-                % written GMB 6/17/2022
+            % written GMB 6/17/2022
 
-                % Assume the pulse train, pt, is a sequence of discrete jumps
-                % in current. Find the 'events' where the pulse train, pt,
-                % jumps up or down.
-                %     Rconvtmp =  zeros(1,tp.ncascades+1); CHECK WITH GEOFF
+            % Assume the pulse train, pt, is a sequence of discrete jumps
+            % in current. Find the 'events' where the pulse train, pt,
+            % jumps up or down.
+            %     Rconvtmp =  zeros(1,tp.ncascades+1); CHECK WITH GEOFF
 
-                % Since spikes are sparse, manually convolve the 'spikes' with
-                % the impulse response function at lowet temporal
-                % resolution
+            % Since spikes are sparse, manually convolve the 'spikes' with
+            % the impulse response function at lowet temporal
+            % resolution
 
-                if isfield(tp,'tSamp')
-                    if tp.tSamp~=1% down-sample the time-vectors
-                        t = trl.t(1:tp.tSamp:end);
-                    end
-                else
-                    t = trl.t;
+            if isfield(tp,'tSamp')
+                if tp.tSamp~=1% down-sample the time-vectors
+                    t = trl.t(1:tp.tSamp:end);
                 end
-                ptid = find(diff(trl.pt))+1;
-
-                % Rtmp will hold the values of R1 at the event times.
-                Rtmp = zeros(1,length(ptid));
-                wasRising = 0;
-                % Loop through the events, calculating R1 at the end of the event
-                % and add impulse responses when R1 peaks and is after the refractory period.
-                spikeId = zeros(size(Rtmp));
-                for i=1:(length(ptid)-1)
-                    tNow = trl.t(ptid(i+1));
-                    delta = trl.t(ptid(i+1))-trl.t(ptid(i));  % time since last 'event'
-                    % Closed form solution to leaky integrator that predicts
-                    % R(i+1) from R(i), delta and tau1:
-                    Rtmp(i+1) = trl.pt(ptid(i))*tp.tau1*(1-exp(-delta/tp.tau1)) + ...
-                        Rtmp(i)*exp(-delta/tp.tau1);
-
-                    % Add a spike if:
-                    % (1) R1 is going down since last event
-                    % (2) R1 was going up before that, and
-                    % (3) we're past the refractory period since the last spike
-                    if Rtmp(i+1)<Rtmp(i) && wasRising
-                        spikeId(i) = 1; % check spike id identical in both loops IF CHECK
-                        wasRising = 0;  % no longer rising
-                        lastSpikeTime = trl.t(ptid(i+1));
-                    else
-                        wasRising =1;
-                    end
-                end
-                R1= Rtmp*1000;
-                R1(R1<0)=0;
-                trl.spikes = R1;
-                if tp.gammaflag
-                    if ~isfield(trl, 'imp_resp')
-                        dt = t(2)-t(1);
-                        h = p2p_c.gamma(tp.ncascades,tp.tau2,t);            % Generate the n-cascade impulse response
-                        tid = find(cumsum(h)*dt>.999,1,'first'); % Shorten the filter if needed to speed up the code.
-                        if ~isempty(tid)
-                            h = h(1:tid);
-                        else
-                            sprintf('Warning: gamma hdr might not have a long enough time vector');
-                        end
-                        trl.imp_resp = h;  % close enough to use h
-                    end
-                    impFrames = [0:(length(trl.imp_resp)-1)];
-                    resp = zeros(1,length(t)+length(trl.imp_resp));        % zero stuff out
-                    for i=1:length(trl.spikes)
-                        if spikeId(i)
-                            id = find(t>trl.t(ptid(i)),1,'first');
-                            resp(id+impFrames)  =   ...
-                                resp(id+impFrames) + trl.spikes(i)*trl.imp_resp;
-                        end
-                    end
-                    resp = p2p_c.nonlinearity(tp, resp);
-                    trl.maxresp = max(resp); % detection when maxresp goes above a threshold
-                else
-                    resp= trl.spikes;
-                    trl.maxresp = max(resp);
-                end
-                % save the time-course of the response for output
-                trl.resp = resp(1:length(t));
-                trl.tt = t;  % for plotting
+            else
+                t = trl.t;
             end
+            ptid = find(diff(trl.pt))+1;
+
+            % R will hold the values of R1 at the event times.
+            Rtmp = zeros(1,length(ptid));
+            wasRising = 0;
+            % Loop through the events, calculating R1 at the end of the event
+            % and add impulse responses when R1 peaks and is after the refractory period.
+            spikeId = logical(size(Rtmp));
+            for i=1:(length(ptid)-1)
+                tNow = trl.t(ptid(i+1));
+                delta = trl.t(ptid(i+1))-trl.t(ptid(i));  % time since last 'event'
+                % Closed form solution to leaky integrator that predicts
+                % R(i+1) from R(i), delta and tau1:
+                Rtmp(i+1) = trl.pt(ptid(i))*tp.tau1*(1-exp(-delta/tp.tau1)) + ...
+                    Rtmp(i)*exp(-delta/tp.tau1);
+
+                % Add a spike if:
+                % (1) R1 is going down since last event
+                % (2) R1 was going up before that, and
+                % (3) we're past the refractory period since the last spike
+                if Rtmp(i+1)<Rtmp(i) && wasRising
+                    spikeId(i) = 1; % check spike id identical in both loops IF CHECK
+                    wasRising = 0;  % no longer rising
+                    lastSpikeTime = trl.t(ptid(i+1));
+                else
+                    wasRising =1;
+                end
+            end
+            R1= Rtmp*1000;
+            R1(R1<0)=0;
+            % pull out only spike events
+            trl.spikes = R1(spikeId);
+            ptid = ptid(spikeId);
+            if tp.gammaflag
+             %   if ~isfield(trl, 'imp_resp')  % danger - if pre-computed,
+             %   it wont change if tau2 changes.
+                    dt = t(2)-t(1);
+                    h = p2p_c.gamma(tp.ncascades,tp.tau2,t);            % Generate the n-cascade impulse response
+                    tid = find(cumsum(h)*dt>=.999,1,'first'); % Shorten the filter if needed to speed up the code.
+                    if ~isempty(tid)
+                        h = h(1:tid);
+                    else
+                        disp('Warning: gamma hdr might not have a long enough time vector');
+                    end
+                    trl.imp_resp = h;  % close enough to use h
+            %    end
+                impFrames = [0:(length(trl.imp_resp)-1)];
+                resp = zeros(1,length(t)+length(trl.imp_resp));        % zero stuff out
+                
+                %reduction in spikes by inter-spike intervals:
+                interspike = [0,diff(trl.t(ptid))];
+                trl.spikes = trl.spikes.*(1-exp(-tp.refrac*(interspike+tp.delta)));
+                for i=1:length(trl.spikes)
+                        id = find(t>trl.t(ptid(i)),1,'first');
+                        resp(id+impFrames)  =   ...
+                            resp(id+impFrames) + trl.spikes(i)*trl.imp_resp;
+                end
+                resp = p2p_c.nonlinearity(tp, resp);
+                trl.maxresp = max(resp); % detection when maxresp goes above a threshold
+            else
+                resp= trl.spikes;
+                trl.maxresp = max(resp);
+            end
+            % save the time-course of the response for output
+            trl.resp = resp(1:length(t));
+            trl.tt = t;  % for plotting
+        end
 
 
             %% utilities
