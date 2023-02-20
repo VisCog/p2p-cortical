@@ -3,6 +3,8 @@
 %
 % Fits a variety of frequency data
 %
+% Written by gmb on feb 20, 2023
+
 
 tp = p2p_c.define_temporalparameters();
 tp.tau2 = .15;
