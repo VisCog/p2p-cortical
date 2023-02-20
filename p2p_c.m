@@ -369,58 +369,58 @@ classdef p2p_c
                 error('c.rfmodel model not recognized')
             end
         end
-        function [v] = generate_rfmap(c, v)
-            % calculates spatial phosphenes in visual space based on electrodes in
-            % cortical space
-            if ~isfield(c, 'rftype')
-                c.rftype = 'rf';
-            end
-            % generates the sum of weighted receptive fields activated by an electrode
-            % normalized so the max is 1
-            idx = 1:length(v.e);
-            for ii = 1:length(idx)
-                disp([num2str(round((100*ii)/length(idx))),  '% electrodes complete' ]);
-                rfmap = zeros([size(v.X), 2]); % percept that includes a cortical model
-
-                for pixNum = 1:length(c.X(:))
-                    if c.e(idx(ii)).ef(pixNum) > c.efthr * 255
-                        x0 = c.v2c.X(pixNum); % x center
-                        y0 = c.v2c.Y(pixNum); % y center
-                        if strcmp(c.e(idx(ii)).hemi, 'lh')
-                            x0=-x0; y0 = -y0;
-                        end
-                        theta = pi-c.ORmap(pixNum);  %orientation
-                        sigma_x = c.RFmap(pixNum) * c.ar; % major axis sd
-                        sigma_y = c.RFmap(pixNum); % minor axis sd
-
-                        % things you need to go from sigmas and theta to G
-                        aa = cos(theta)^2/(2*sigma_x^2) + sin(theta)^2/(2*sigma_y^2);
-                        bb = -sin(2*theta)/(4*sigma_x^2) + sin(2*theta)/(4*sigma_y^2);
-                        cc = sin(theta)^2/(2*sigma_x^2) + cos(theta)^2/(2*sigma_y^2);
-
-                        % oriented 2D Gaussian
-                        if strcmp(c.rftype, 'scoreboard')
-                            % scoreboard version
-                            tmp = double( c.e(idx(ii)).ef(pixNum))/255;
-                            rfmap(:, :, 1) = rfmap(:, :, 1) + (tmp * exp(-( (v.X-x0).^2/(0.01) + (v.Y-y0).^2/(.01))));
-                            rfmap(:, :, 2) = rfmap(:, :, 1);
-                        else
-                            tmp = double(c.e(idx(ii)).ef(pixNum))/255;
-                            G = tmp * exp( - (aa*(v.X-x0).^2 + 2*bb*(v.X-x0).*(v.Y-y0) + cc*(v.Y-y0).^2));
-                            rfmap(:, :, 1)  =   rfmap(:, :, 1)  + c.ODmap(pixNum)*G;
-                            rfmap(:, :, 2)  =   rfmap(:, :, 2)  + (1-c.ODmap(pixNum))*G;
-                        end
-                    end
-                end
-                if sum(rfmap(:)>0)<20
-                    disp('WARNING! Too few pixels passed ef threshold.');
-                    disp(' try lowering c.efthr, checking location of electrodes relative to cortical sheet & ');
-                    disp('checking the sampling resolution of cortex');
-                end
-
-                v.e(idx(ii)).rfmap = rfmap./max(rfmap(:));
-            end
-        end
+%         function [v] = generate_rfmap(c, v)
+%             % calculates spatial phosphenes in visual space based on electrodes in
+%             % cortical space
+%             if ~isfield(c, 'rftype')
+%                 c.rftype = 'rf';
+%             end
+%             % generates the sum of weighted receptive fields activated by an electrode
+%             % normalized so the max is 1
+%             idx = 1:length(v.e);
+%             for ii = 1:length(idx)
+%                 disp([num2str(round((100*ii)/length(idx))),  '% electrodes complete' ]);
+%                 rfmap = zeros([size(v.X), 2]); % percept that includes a cortical model
+% 
+%                 for pixNum = 1:length(c.X(:))
+%                     if c.e(idx(ii)).ef(pixNum) > c.efthr * 255
+%                         x0 = c.v2c.X(pixNum); % x center
+%                         y0 = c.v2c.Y(pixNum); % y center
+%                         if strcmp(c.e(idx(ii)).hemi, 'lh')
+%                             x0=-x0; y0 = -y0;
+%                         end
+%                         theta = pi-c.ORmap(pixNum);  %orientation
+%                         sigma_x = c.RFmap(pixNum) * c.ar; % major axis sd
+%                         sigma_y = c.RFmap(pixNum); % minor axis sd
+% 
+%                         % things you need to go from sigmas and theta to G
+%                         aa = cos(theta)^2/(2*sigma_x^2) + sin(theta)^2/(2*sigma_y^2);
+%                         bb = -sin(2*theta)/(4*sigma_x^2) + sin(2*theta)/(4*sigma_y^2);
+%                         cc = sin(theta)^2/(2*sigma_x^2) + cos(theta)^2/(2*sigma_y^2);
+% 
+%                         % oriented 2D Gaussian
+%                         if strcmp(c.rftype, 'scoreboard')
+%                             % scoreboard version
+%                             tmp = double( c.e(idx(ii)).ef(pixNum))/255;
+%                             rfmap(:, :, 1) = rfmap(:, :, 1) + (tmp * exp(-( (v.X-x0).^2/(0.01) + (v.Y-y0).^2/(.01))));
+%                             rfmap(:, :, 2) = rfmap(:, :, 1);
+%                         else
+%                             tmp = double(c.e(idx(ii)).ef(pixNum))/255;
+%                             G = tmp * exp( - (aa*(v.X-x0).^2 + 2*bb*(v.X-x0).*(v.Y-y0) + cc*(v.Y-y0).^2));
+%                             rfmap(:, :, 1)  =   rfmap(:, :, 1)  + c.ODmap(pixNum)*G;
+%                             rfmap(:, :, 2)  =   rfmap(:, :, 2)  + (1-c.ODmap(pixNum))*G;
+%                         end
+%                     end
+%                 end
+%                 if sum(rfmap(:)>0)<20
+%                     disp('WARNING! Too few pixels passed ef threshold.');
+%                     disp(' try lowering c.efthr, checking location of electrodes relative to cortical sheet & ');
+%                     disp('checking the sampling resolution of cortex');
+%                 end
+% 
+%                 v.e(idx(ii)).rfmap = rfmap./max(rfmap(:));
+%             end
+%         end
         function [trl,v] = generate_phosphene(v, tp, trl)
             % calculate the neural response over time across the spatial
             % maps generated by generate_rfmap

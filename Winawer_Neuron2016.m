@@ -2,7 +2,7 @@
 clear all; close all
 
 % addpath(genpath('C:\Users\Ione Fine\Documents\code\UWToolbox\UWToolbox\plotting\'));
-c.efthr = 0.005;% what magnitude of electric field goes through the model, just a speed thing so one doesn't bother processing non-active regions of cortex
+c.efthr = 0.05;% what magnitude of electric field goes through the model, just a speed thing so one doesn't bother processing non-active regions of cortex
 v.drawthr =1;
 
 T = readtable('datasets/Winawer2016_data.xlsx');
@@ -10,7 +10,8 @@ colorList  = [ 0.5    0    0;   0.5 1 0.5;   1  0.8125    0; 0   0.8750   1;    
 
 % use same cortex size and center across electrodes
 c.cortexHeight = [-35,35]; % degrees top to bottom, degrees LR,
-c.cortexLength = [-10, 110]; 
+c.cortexLength = [-10, 80]; 
+c.pixpermm = 6; 
 c = p2p_c.define_cortex(c);
 tp = p2p_c.define_temporalparameters();
 v.eccList = [1 2 3 5 8 13 21 34];
@@ -20,19 +21,19 @@ for ii=1:5
     switch ii
         case 1
             v.e.ang = 19.8;      v.e.ecc = 26.6;  c.e.radius = 1.150; % in cm
-          v.visfieldHeight = [-35,35]; v.visfieldWidth= [-35,35]; v.pixperdeg = 12;
+          v.visfieldHeight = [-35,35]; v.visfieldWidth= [-35,35]; v.pixperdeg = 8;
         case 2
             v.e.ang = -166.4;    v.e.ecc = 9;     c.e.radius = 0.510;
-            v.visfieldHeight = [-25,25]; v.visfieldWidth= [-25,25]; v.pixperdeg = 12; 
+            v.visfieldHeight = [-25,25]; v.visfieldWidth= [-25,25]; v.pixperdeg = 8; 
         case 3
             v.e.ang = 142.2;     v.e.ecc = 5.12;  c.e.radius = 1.150;
-            v.visfieldHeight = [-10,10]; v.visfieldWidth= [-10,10]; v.pixperdeg = 12; 
+            v.visfieldHeight = [-10,10]; v.visfieldWidth= [-10,10]; v.pixperdeg = 8; 
         case 4 % central electrodes
             v.e.ang = 135;       v.e.ecc = 1.9;   c.e.radius = 1.150;
-           v.visfieldHeight = [-5,5]; v.visfieldWidth= [-5,5]; v.pixperdeg = 12; 
+           v.visfieldHeight = [-5,5]; v.visfieldWidth= [-5,5]; v.pixperdeg = 8; 
         case 5
             v.e.ang = 146.3;     v.e.ecc = 1;     c.e.radius = 1.150;
-           v.visfieldHeight = [-5,5]; v.visfieldWidth= [-5,5]; v.pixperdeg = 12; 
+           v.visfieldHeight = [-5,5]; v.visfieldWidth= [-5,5]; v.pixperdeg = 8; 
     end
 
     v = p2p_c.define_visualmap(v);
@@ -40,7 +41,7 @@ for ii=1:5
     c = p2p_c.define_electrodes(c, v);
     c = p2p_c.generate_ef(c, ii);
     % this is the slow part...
-    v = p2p_c.generate_rfmap(c, v);
+    v = p2p_c.generate_corticalelectricalresponse(c, v);
 
     figure(ii); clf ; hold on
     clear trl
@@ -102,7 +103,7 @@ for ii=1:5
     end
 end
 figure(6);
-    plot([log10(1) log(10000)], [log(1), log(10000)], 'k');
+    plot(log10([.001 1 100 10000]),log10([.001 1 100 10000]), 'k--');
     set(gca,'XLim', [log10(.0001) log10(1000000)]);  
     set(gca,'YLim', [log10(.0001) log10(1000000)])
     set(gca,'XTick', log10([.001 1 100 10000]));
