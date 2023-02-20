@@ -3,7 +3,6 @@
 %
 % Fits a variety of pulse width data, examining how threshold varies with
 % pulse width
-%
 
 tp = p2p_c.define_temporalparameters();
 tp.refrac = 50;
