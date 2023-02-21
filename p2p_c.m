@@ -43,7 +43,7 @@ classdef p2p_c
             else
                 if trl.ip ==0
                     on =  mod(trl.t,1/trl.freq) <=(trl.pw*2); % turn it on on
-                    off = mod(trl.t-trl.pw,1/trl.freq) <=trl.pw;
+                    off = mod(trl.t-trl.pw,1/trl.freq) <=trl.pw & on  % '& on' hack added by gmb;
                     tmp  = trl.amp.*(on-(2*off));
                 else
                     on =  mod(trl.t,1/trl.freq) <trl.pw;
