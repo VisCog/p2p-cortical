@@ -1,8 +1,8 @@
 % Bosking_JNeuro_17.m
 c.e.radius = 0.25;
-c.efthr = 0.05;
-v.drawthr =5;
-n_e_sample = 3; % how many electrodes to simulate, if NaN simulates all of them
+c.efthr = 0.1;
+v.drawthr = 5;
+n_e_sample = 5; % how many electrodes to simulate, if NaN simulates all of them
 % %%  begin by defining the location and size of electrodes
 % all_v= Bosking_getData(42);
 %
@@ -27,17 +27,16 @@ end
 %% define cortical and visual space
 c.cortexHeight = [-35,35]; % degrees top to bottom, degrees LR,
 c.cortexLength = [-10, 80];
-c.pixpermm = 12;
+c.pixpermm = 8;
 c = p2p_c.define_cortex(c);
 vLim = max([all_v.e(:).ecc])*2;
-v.visfieldHeight = [-vLim, vLim]; v.visfieldWidth= [-vLim,vLim]; v.pixperdeg = 24;
+v.visfieldHeight = [-vLim, vLim]; v.visfieldWidth= [-vLim,vLim]; v.pixperdeg = 12;
 v = p2p_c.define_visualmap(v);
 [c, v] = p2p_c.generate_corticalmap(c, v);
 
 % temporal parameters
 tp = p2p_c.define_temporalparameters();
 amp = [50 100 150 200 250 500,750,1000,1500,2000,3000,4000];
-amp = 1000;
 dur =  200*10^-3*ones(size(amp));
 pw =  .1 * 10^-3*ones(size(amp));
 freq  = 200 * 10^-3*ones(size(amp));
@@ -73,7 +72,6 @@ for ii=1:n_e_sample
         disp(['amp = ', num2str(amp(tt)), ' size ', num2str(sim_sizes(ii,tt))]);
     end
 end
-
 
 %% phosphene size as a function of phosphene eccentricity 
 % stimulation at 1000 microamps)
