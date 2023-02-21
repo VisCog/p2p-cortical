@@ -1,105 +1,106 @@
 % Bosking_JNeuro_17.m
 c.e.radius = 0.25;
 c.efthr = 0.05;
-n_e_sample = NaN; % how many electrodes to simulate, if NaN simulates all of them
-%%  begin by defining the location and size of electrodes
-all_v= Bosking_getData(42);
+v.drawthr =5;
+n_e_sample = 3; % how many electrodes to simulate, if NaN simulates all of them
+% %%  begin by defining the location and size of electrodes
+% all_v= Bosking_getData(42);
+%
+% % add some electrodes near the fovea, since we couldn't sample those from the paper
+% morevals = linspace(.01, 2, 8);
+% for i=43:50
+%     all_v.e(i).ecc = morevals(i-42);
+%     all_v.e(i).ang = (rand(1)*2*pi)-pi;
+% end
+%
+% if  ~isnan(n_e_sample); ss = randperm(length(all_v.e), n_e_sample); % collect a random subsample of the electrodes
+% else ;   ss = 1:length(all_v.e);    n_e_sample = length(all_v.e); end
 
-
-% add some electrodes near the fovea, since we couldn't sample those from the paper
-morevals = linspace(.01, 2, 8);
-for i=43:50
-    all_v.e(i).ecc = morevals(i-42);
-    all_v.e(i).ang = (rand(1)*2*pi)-pi;
+ecc = linspace(0.01, 25, n_e_sample);
+ang = (rand(size(ecc))*2*pi)-pi;
+for i = 1:length(ecc)
+    all_v.e(i).ecc = ecc(i);
+    all_v.e(i).ang = 0;
 end
-
-if ~isnan(n_e_sample)
-ss = randperm(length(all_v.e), n_e_sample); % collect a random subsample of the electrodes
-else
-    ss = 1:length(all_v.e);
-    n_e_sample = length(all_v.e);
-end
+ ss = 1:length(all_v.e); 
 
 %% define cortical and visual space
 c.cortexHeight = [-35,35]; % degrees top to bottom, degrees LR,
-c.cortexLength = [-10, 80]; 
-c.pixpermm = 6; 
+c.cortexLength = [-10, 80];
+c.pixpermm = 12;
 c = p2p_c.define_cortex(c);
-
-v.visfieldHeight = [-60,60]; v.visfieldWidth= [-60,60]; v.pixperdeg = 12;
+vLim = max([all_v.e(:).ecc])*2;
+v.visfieldHeight = [-vLim, vLim]; v.visfieldWidth= [-vLim,vLim]; v.pixperdeg = 24;
 v = p2p_c.define_visualmap(v);
 [c, v] = p2p_c.generate_corticalmap(c, v);
+
 % temporal parameters
 tp = p2p_c.define_temporalparameters();
-
-% set up plots
-figure(1); hold on
-p2p_c.plotretgrid(0, v, gray(64), 1, ['']);
-
-for ii=1:n_e_sample    
-    disp(fprintf('Electrode %d of %d',ii,n_e_sample));
-v.e = all_v.e(ss(ii));
-c.e.radius = 0.25;
-c = p2p_c.define_electrodes(c, v);
-c = p2p_c.generate_ef(c);
-
 amp = [50 100 150 200 250 500,750,1000,1500,2000,3000,4000];
-dur =  200*10^-3*ones(size(ampList));
-pw =  .1 * 10^-3*ones(size(ampList));
-freq  = 200 * 10^-3*ones(size(ampList));
-
+amp = 1000;
+dur =  200*10^-3*ones(size(amp));
+pw =  .1 * 10^-3*ones(size(amp));
+freq  = 200 * 10^-3*ones(size(amp));
 Tsim = table(amp', pw', freq', dur');
 Tsim.Properties.VariableNames = {'amp', 'pw','freq','dur'};
 all_trl = p2p_c.loop_convolve_model(tp, Tsim);
 
-figure(1) % show electrode location in visual space
-plot([v.e.ecc].*cos([v.e.ang]),[v.e.ecc].*sin([v.e.ang]),'ko','MarkerFaceColor','w');
+% set up plots
+figure(1); hold on
+p2p_c.plotretgrid(0, v, gray(64), 1, ['';]);
 
-v = p2p_c.generate_corticalelectricalresponse(c, v);
+for ii=1:n_e_sample
+    disp(fprintf('Electrode %d of %d',ii,n_e_sample));
+    figure(ii); clf; hold on
+    v.e = all_v.e(ss(ii));
+    c.e.radius = 0.25;
+    c = p2p_c.define_electrodes(c, v);
+    c = p2p_c.generate_ef(c);
+    v = p2p_c.generate_corticalelectricalresponse(c, v);
     for tt=1:length(amp)
         trl = all_trl(tt);
         trl = p2p_c.generate_phosphene(v, tp, trl, all_trl(tt).resp);
-        img = mean(trl.maxphos, 3); % average over both eye-dominant cells
-        p2p_c.plotretgrid((img./max(img(:)))*256, v, gray(256), 2, ['';]);
+        if tt == length(amp)
+            img = mean(trl.maxphos, 3); % average over both eye-dominant cells
+            p2p_c.plotretgrid((img./max(img(:)))*256, v, gray(256), ii, ['';]); drawnow; hold on
+            p2p_c.draw_ellipse(trl, ii,[''], 1,'r');
+        end
         trl.sim_radius= mean([trl.ellipse(1).sigma_x trl.ellipse(1).sigma_y]);
         trl.sim_diameter = 2 * trl.sim_radius;
         trl.sim_brightness = max(trl.maxphos(:));
         trl.maxresp = max(trl.resp);
         sim_sizes(ii,tt) =  trl.sim_diameter;
-        disp(['amp = ', num2str(ampList(tt)), ' size ', num2str(sim_sizes(ii,tt))]);
-        drawnow;
+        disp(['amp = ', num2str(amp(tt)), ' size ', num2str(sim_sizes(ii,tt))]);
     end
 end
 
-% Plot normalized size as a function of Current (figure 3D)
-max_size = max(sim_sizes')';
-y = sim_sizes./repmat(max_size,1,length(ampList));
 
+%% phosphene size as a function of phosphene eccentricity 
+% stimulation at 1000 microamps)
+
+figure(10); clf; hold on
+idx = find(amp == 1000);
+for ii=1:n_e_sample
+    plot(   all_v.e(ii).ecc, sim_sizes(ii,idx), 'ks', 'MarkerSize', 12,'MarkerFaceColor',[.75,.75,.75],'LineWidth',2); % Figure 4, Bosking 2017
+    if ii>42
+        plot(all_v.e(ii).ecc, sim_sizes(ii,idx), 'ks', 'MarkerSize', 12,'MarkerFaceColor',[1,.5,.5],'LineWidth',2); % Figure 4, Bosking 2017
+    end
+end
+xlabel('Eccentricity (deg)'); ylabel('Phosphene size (deg)');
+set(gca,'FontSize',20);set(gca, 'YLim', [0 6])
+
+%% Normalized size as a function of Current (figure 3D)
+max_size = max(sim_sizes')';
+y = sim_sizes./repmat(max_size,1,length(amp));
 figure(2); clf; hold on
-plot(ampList(1:end)/1000,y(:,1:end),'k-','LineWidth',1);
-plot(ampList(1:end)/1000,y(:,1:end),'s','Color','k','MarkerFaceColor',.75*[1,1,1],'MarkerSize',18,'LineWidth',2);
+plot(amp(1:end)/1000,y(:,1:end),'k-','LineWidth',1);
+plot(amp(1:end)/1000,y(:,1:end),'s','Color','k','MarkerFaceColor',.75*[1,1,1],'MarkerSize',18,'LineWidth',2);
 xlabel('Current (mA)');
 ylabel('Normalized phosphene size');
 set(gca,'XLim',[0,4.100]);
 set(gca,'XTick',[0:4]);
 set(gca,'YLIm',[0,1.1]);
 set(gca,'FontSize',24);
-
-%%
-% Plot phosphene size as a function of phosphene eccentricity (for
-% stimulation at 1000 microamps)
-
-figure(3); clf; hold on
-idx = find(amp == 1000);
-for ii=1:n_e_sample
-    plot(   all_v.e(ii).ecc, sim_sizes(ii,idx), 'ks', 'MarkerSize', 12,'MarkerFaceColor',[.75,.75,.75],'LineWidth',2); % Figure 4, Bosking 2017
-if ii>42    
-    plot(all_v.e(ii).ecc, sim_sizes(ii,idx), 'ks', 'MarkerSize', 12,'MarkerFaceColor',[1,.5,.5],'LineWidth',2); % Figure 4, Bosking 2017
-end
-end
-xlabel('Eccentricity (deg)'); ylabel('Phosphene size (deg)');
-set(gca,'FontSize',20);set(gca, 'YLim', [0 6])
-
 
 function v = Bosking_getData(varargin)
 
