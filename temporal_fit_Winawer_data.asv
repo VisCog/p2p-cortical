@@ -26,7 +26,6 @@ colorList  = [1 0 0; 0 1 0; 1 .7 0; .3 .3  1; 0 0 1 ]; % roughly match colors to
 for r = 1:2 % test and train data
     for site =1:5
         eid = intersect(rsamp(r).val, find([T.electrode==site].*[T.amp==0]));
-        if ~isempty(eid)
         Texp = T(eid, :);
         trl= p2p_c.loop_convolve_model(tp, Texp);
         subplot(1, 2, r)
@@ -44,8 +43,6 @@ for r = 1:2 % test and train data
             set(t, 'Color',colorList(site, :) )
             title(titleStr{r});
         end
-        end
     end
-    
 end
 
