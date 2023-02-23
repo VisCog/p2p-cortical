@@ -52,7 +52,9 @@ for e=1:2:length(wfma)
     a = gca; set(a, 'FontSize', 6);
         t = title(['E', num2str(e), 'LE' ]);    set(t, 'FontSize', 6);
      subplot(2,8, ct+8)
-    p2p_c.plotretgrid(tmp_trl.maxphos(:, :, 2)*20, v, gray(256), 2,['';]);
+        img = tmp_trl.maxphos(:, :, 2); 
+           img = img*scFac +75;
+    p2p_c.plotretgrid(img, v, gray(256), 2,['';]);
     t= title(['E', num2str(e), 'RE' ]);
     set(t, 'FontSize', 6);    a = gca; set(a, 'FontSize', 6);
  ct = ct+1;
