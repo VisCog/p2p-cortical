@@ -24,8 +24,9 @@ c = p2p_c.define_electrodes(c, v); % complete properties for each electrode in c
 % set up the electrode locations in terms of their positions in the teeny array
 c = p2p_c.generate_ef(c); % generate map of the electric field for each electrode on cortical surface
 
-% this is the code that does it, but i've got the guts below 
- v = p2p_c.generate_corticalelectricalresponse(c, v);  % create rf map for each electrode
+% this is the code that does it, when you run this it will give an error
+% where the on and off fields needf to be combinaed
+ % v = p2p_c.generate_corticalelectricalresponse(c, v);  % create rf map for each electrode
 
 x0 = 1.6; % x and y position of the cell in space
 y0 = -0.1;
@@ -63,7 +64,9 @@ wminus = 1.7;
                 hplus_off = hplus_off./sum(hplus_off(:));
 
                 % add the off component for bright and dark dots, and scale relative
-                % amplitudes
+                % amplitudes, so in our simulation the max of bright RF and
+                % dark RF are always both 1, unlike Ringach, we just
+                % randomize the strength of the off field
                 bright = wplus*hplus_on - 0.4.*wminus*hplus_off;
                 dark = wminus*hplus_off - 0.4*wplus*hplus_on;
                 % left eye

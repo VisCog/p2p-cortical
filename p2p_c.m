@@ -294,8 +294,9 @@ classdef p2p_c
                         if ndims(RF)<4
                             rfmap(:, :, 1)  =   rfmap(:, :, 1) + RF(:, :, 1);
                             rfmap(:, :, 2)  =   rfmap(:, :, 2) + RF(:, :, 2);
-                        else
-                            error('need to decide how to add Ringachs on and off cells');
+                        else % need to fix this
+                            rfmap(:, :, 1)  =   rfmap(:, :, 1) + RF(:, :, 1);
+                            rfmap(:, :, 2)  =   rfmap(:, :, 2) + RF(:, :, 2);
                         end
                     end
                 end
