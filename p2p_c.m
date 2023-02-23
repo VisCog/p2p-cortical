@@ -291,8 +291,12 @@ classdef p2p_c
                     end
                     if abs(c.e(idx(ii)).ef(pixNum)) > c.efthr * 255
                         RF = p2p_c.generate_corticalcell(double(c.e(idx(ii)).ef(pixNum)), pixNum, c, v);
-                        rfmap(:, :, 1)  =   rfmap(:, :, 1) + RF(:, :, 1);
-                        rfmap(:, :, 2)  =   rfmap(:, :, 2) + RF(:, :, 2);
+                        if ndims(RF)<4
+                            rfmap(:, :, 1)  =   rfmap(:, :, 1) + RF(:, :, 1);
+                            rfmap(:, :, 2)  =   rfmap(:, :, 2) + RF(:, :, 2);
+                        else
+                            error('need to decide how to add Ringachs on and off cells');
+                        end
                     end
                 end
                 if sum(rfmap(:)>0)<20
