@@ -703,7 +703,7 @@ function trl = convolve_model(tp, trl)
                 % (1) R1 is going down since last event
                 % (2) R1 was going up before that, and
                 % (3) we're past the refractory period since the last spike
-                if Rtmp(i+1)<Rtmp(i) && wasRising
+                if Rtmp(i+1)<Rtmp(i) && wasRising 
                     spikeId(i) = 1; % check spike id identical in both loops IF CHECK
                     wasRising = 0;  % no longer rising
                     lastSpikeTime = trl.t(ptid(i+1));
@@ -711,8 +711,10 @@ function trl = convolve_model(tp, trl)
                     wasRising =1;
                 end
             end
+
             R1= Rtmp*1000;
             R1(R1<0)=0;
+            spikeId (R1<=0) = 0; % sometimes non-spikes identified as spikes
             % pull out only spike events
             trl.spikes = R1(spikeId);
             ptid = ptid(spikeId);
@@ -733,7 +735,8 @@ function trl = convolve_model(tp, trl)
                 resp = zeros(1,length(t)+length(trl.imp_resp));        % zero stuff out
                 
                 %reduction in spikes by inter-spike intervals:
-                interspike = [0,diff(trl.t(ptid))];
+                interspike = [1,diff(trl.t(ptid))];
+                trl.spikes_norefrac = trl.spikes;
                 trl.spikes = trl.spikes.*(1-exp(-tp.refrac*(interspike+tp.delta)));
                 for i=1:length(trl.spikes)
                         id = find(t>trl.t(ptid(i)),1,'first');
@@ -749,7 +752,9 @@ function trl = convolve_model(tp, trl)
             % save the time-course of the response for output
             trl.resp = resp(1:length(t));
             trl.tt = t;  % for plotting
+            trl.spikeWhen= ptid;
         end
+
 
         %% utilities
         function out=chronaxie(p,pw)

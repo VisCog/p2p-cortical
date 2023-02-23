@@ -1,5 +1,5 @@
 
-%% fitPulseWidth.m
+%% plot_temporal_model.m
 %
 % Fits a variety of pulse width data, examining how threshold varies with
 % pulse width
@@ -19,46 +19,17 @@ t_crop = round((trl.dur*1.2)/tp.dt);
 trl = p2p_c.define_trial(tp,trl);
 trl= p2p_c.convolve_model(tp, trl);
 
+% pulse train
 subplot(5,1,1); 
  plot(trl.t(1:t_crop), trl.pt(1:t_crop), 'k');
 set(gca, 'YLim', trl.amp*1.05*[-1 1]);
 ylabel('Current Amplitude');
 xlabel('Time');
+title('Pulse Train');
 
-subplot(5, 1, 2)
-spikes = zeros(1, t_crop);
-spikes(trl.spikeId) = trl.spikes_norefrac;
-plot(trl.t(1:t_crop), spikes(1:t_crop), 'g');
-ylabel('Spike no Refract');
-xlabel('Time');
-
-subplot(5, 1, 3)
-spikes = zeros(1, t_crop);
-spikes(trl.spikeId) = trl.spikes;
-plot(trl.t(1:t_crop), spikes(1:t_crop), 'g');
-ylabel('Spike with Refract');
-xlabel('Time');
-
-subplot(5, 1, 5)
-plot(trl.t(1:tp.tSamp:end), trl.resp*1000, 'r');
-
-figure(2)
-x = 0:.1:20;
-     y = p2p_c.nonlinearity(tp,x);
-     plot(x, y, 'k-');
-     xlabel('neural response')
-     ylabel('compression');
-
-
-
-return
-tp.thresh_resp = trl.maxresp;% use that as the threshold response
-
-subplot(5, 1,1); hold on
-
-
-
-% calculate output first stage
+% tau1 response
+% calculate output first stage, not subsampling so can get the full
+% response
 Rtmp = 0;
 ptid =[1  find(diff(trl.pt))+1 length(trl.pt)]; % times of event changes
 wasRising = 0;
@@ -78,23 +49,52 @@ for i=1:max(ptid)
     end
 end
 
-subplot(5,1,1); plot(trl.t(1:t_crop), 1000*Rtmp(1:t_crop), 'r'); hold on
+subplot(5,1,4); plot(trl.t(1:t_crop), 1000*Rtmp(1:t_crop), 'r'); hold on
 ylabel('Tau1 response');
 xlabel('Time');
+title('Tau 1 response')
 
-% for i=1:length(x)
-%     h(i)= scatter(x{i}+sd*randn(size(x{i})),y2{i},sz , 'MarkerFaceColor', colList{i},...
-%         'MarkerEdgeColor','k','MarkerFaceAlpha',alpha);
-% end
-%
-% set(gca,'XTick',log(xtick)); logx2raw; ylabel('Threshold'); widen; grid;
-% xlabel('Pulse Width (msec)'); ylabel('Amplitude @ Threshold');
-% legend(h,legStr,'Location','NorthEast');
-% set(gca,'YLim',[0,20]);
-% set(gca,'FontSize',fontSize);
-% title('Scaled model predictions');
-%
-%
+% spikes without refractory period
+subplot(5, 1, 2)
+spikes = zeros(1, t_crop);
+spikes(trl.spikeWhen) = trl.spikes_norefrac;
+plot(trl.t(1:t_crop), spikes(1:t_crop), 'g');
+ylabel('Spikes');
+xlabel('Time (secs)');
+title('Spike with no Refractory Period');
+
+% spikes with refractory period
+subplot(5, 1, 3)
+spikes = zeros(1, t_crop);
+spikes(trl.spikeWhen) = trl.spikes;
+plot(trl.t(1:t_crop), spikes(1:t_crop), 'g');
+ylabel('Spikes')
+xlabel('Time');
+title('Spikes with Refractory Period');
+
+subplot(5, 1, 5)
+plot(trl.t(1:tp.tSamp:end), trl.resp*1000, 'r');
+ylabel('Final Response');
+xlabel('Time');
+title('Final Response')
+
+figure(2); clf
+subplot(1,2,1)
+  h = p2p_c.gamma(tp.ncascades,tp.tau2,trl.t);    
+plot(trl.t(1:tp.tSamp:end), h(1:tp.tSamp:end), 'g');
+xlabel('Time (secs)');
+ylabel('Gamma filter response');
+title('Gamma filter');
+
+subplot(1, 2,2)
+x = 0:.1:25;
+y = p2p_c.nonlinearity(tp,x);
+plot(x, y, 'k-');
+xlabel('Neural response')
+ylabel('Neural Compression');
+title('Compression Nonlinearity');
+
+
 
 
 

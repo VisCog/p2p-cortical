@@ -25,7 +25,7 @@ classdef p2p_c
             trl.t = 0:tp.dt:trl.dur-tp.dt;
             if ~isfield(trl, 'pw');     trl.pw = .1 * 10^-3;    end
             if ~isfield(trl, 'ip');     trl.ip = 0;             end % interphase delay
-            if ~isfield(trl, 'lag');    trl.lag = 1 * 10^-3;     end % delay before the pulse train begins
+            if ~isfield(trl, 'lag');    trl.lag = 2*trl.pw;     end % delay before the pulse train begins
             if ~isfield(trl, 'order');  trl.order = 1;          end % 1 = cathodic first, -1  = anodic first
             if ~isfield(trl, 'freq');   trl.freq = 60;          end %NaN if not using a temporal model
             if ~isfield(trl, 'amp');    trl.amp = 100;          end % current amplitude in microAmps
@@ -645,7 +645,7 @@ classdef p2p_c
             end
             amp = (hi+lo)/2;
         end
-        function trl = convolve_model(tp, trl)
+function trl = convolve_model(tp, trl)
             % Implements 'finite_element' using the closed-form solution to
             % the respose to a pluse   Can be faster than 'finite_element'.
             % Assumes square pulse trains.
@@ -683,8 +683,8 @@ classdef p2p_c
             else
                 t = trl.t;
             end
-            ptid =find(diff(trl.pt))+1;
-            
+            ptid = find(diff(trl.pt))+1;
+
             % R will hold the values of R1 at the event times.
             Rtmp = zeros(1,length(ptid));
             wasRising = 0;
@@ -703,7 +703,7 @@ classdef p2p_c
                 % (1) R1 is going down since last event
                 % (2) R1 was going up before that, and
                 % (3) we're past the refractory period since the last spike
-                if Rtmp(i+1)<Rtmp(i) && wasRising
+                if Rtmp(i+1)<Rtmp(i) && wasRising 
                     spikeId(i) = 1; % check spike id identical in both loops IF CHECK
                     wasRising = 0;  % no longer rising
                     lastSpikeTime = trl.t(ptid(i+1));
@@ -711,36 +711,37 @@ classdef p2p_c
                     wasRising =1;
                 end
             end
+
             R1= Rtmp*1000;
             R1(R1<0)=0;
+            spikeId (R1<=0) = 0; % sometimes non-spikes identified as spikes
             % pull out only spike events
             trl.spikes = R1(spikeId);
             ptid = ptid(spikeId);
-            trl.spikeId = ptid;
             if tp.gammaflag
-                %   if ~isfield(trl, 'imp_resp')  % danger - if pre-computed,
-                %   it wont change if tau2 changes.
-                dt = t(2)-t(1);
-                h = p2p_c.gamma(tp.ncascades,tp.tau2,t);            % Generate the n-cascade impulse response
-                tid = find(cumsum(h)*dt>=.999,1,'first'); % Shorten the filter if needed to speed up the code.
-                if ~isempty(tid)
-                    h = h(1:tid);
-                else
-                    disp('Warning: gamma hdr might not have a long enough time vector');
-                end
-                trl.imp_resp = h;  % close enough to use h
-                %    end
+             %   if ~isfield(trl, 'imp_resp')  % danger - if pre-computed,
+             %   it wont change if tau2 changes.
+                    dt = t(2)-t(1);
+                    h = p2p_c.gamma(tp.ncascades,tp.tau2,t);            % Generate the n-cascade impulse response
+                    tid = find(cumsum(h)*dt>=.999,1,'first'); % Shorten the filter if needed to speed up the code.
+                    if ~isempty(tid)
+                        h = h(1:tid);
+                    else
+                        disp('Warning: gamma hdr might not have a long enough time vector');
+                    end
+                    trl.imp_resp = h;  % close enough to use h
+            %    end
                 impFrames = [0:(length(trl.imp_resp)-1)];
                 resp = zeros(1,length(t)+length(trl.imp_resp));        % zero stuff out
-
+                
                 %reduction in spikes by inter-spike intervals:
-                interspike = [1000, diff(trl.t(ptid))]; % assume no previous spikes for a long time before the trial begins
+                interspike = [1,diff(trl.t(ptid))];
                 trl.spikes_norefrac = trl.spikes;
                 trl.spikes = trl.spikes.*(1-exp(-tp.refrac*(interspike+tp.delta)));
                 for i=1:length(trl.spikes)
-                    id = find(t>trl.t(ptid(i)),1,'first');
-                    resp(id+impFrames)  =   ...
-                        resp(id+impFrames) + trl.spikes(i)*trl.imp_resp;
+                        id = find(t>trl.t(ptid(i)),1,'first');
+                        resp(id+impFrames)  =   ...
+                            resp(id+impFrames) + trl.spikes(i)*trl.imp_resp;
                 end
                 resp = p2p_c.nonlinearity(tp, resp);
                 trl.maxresp = max(resp); % detection when maxresp goes above a threshold
@@ -751,6 +752,7 @@ classdef p2p_c
             % save the time-course of the response for output
             trl.resp = resp(1:length(t));
             trl.tt = t;  % for plotting
+            trl.spikeId = spikeId;
         end
 
 
