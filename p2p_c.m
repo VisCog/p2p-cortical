@@ -18,7 +18,7 @@ classdef p2p_c
 
             % durations are all in s
             if ~isfield(trl, 'dur');    trl.dur = 1000*10^-3;   end % duration in s of the electrical stimulation
-            if ~isfield(trl, 'simdur');    trl.simdur = trl.dur+250*10^-3;   end
+            if ~isfield(trl, 'simdur');    trl.simdur = 3 ;   end
             % duration in s of the length of time being simulated, needs to be
             % longer to allow time for the neural response
 
@@ -70,9 +70,10 @@ classdef p2p_c
             %% cortical magnification,
             % typical log z transformation parameters (based on early
             % Schwartz model
+            if ~isfield(c, 'efthr'); c.efthr = 0.05; end % electric field values below this are assumed to be zero
             if ~isfield(c, 'animal') ;  c.animal = 'human'; end
             if strcmp(c.animal, 'human')
-                c.k = 15; %scale
+                c.k = 15; %imcale
                 c.a = 0.5; %fovea expansion for human, macaque is 0.3
                 c.shift = c.k*log(c.a);
                 if ~isfield(c, 'cortexHeight'); c.cortexHeight = [-40,40]; end %[height in mm of cortex, 0 is midline)
@@ -135,11 +136,12 @@ classdef p2p_c
                 c.emodel = 'Tehovnik';      end
             for ii=1:length(idx)
                 R=sqrt((c.X-c.e(idx(ii)).x).^2+(c.Y-c.e(idx(ii)).y).^2);
-                Rd = R-c.e(idx(ii)).radius;
+                Rd = R-c.e(idx(ii)).radius; Rd(Rd<0) = 0;
                 pt_ef = ones(size(c.X));
                 if strcmp(c.emodel, 'Tehovnik')
-                    I0=1; k = 6.75; % in cm
-                    pt_ef(R>c.e(idx(ii)).radius)=I0./(1+k*Rd(R>c.e(idx(ii)).radius).^2);
+                    if ~isfield(c, 'I_0');     c.I_0  = 1; end
+                    if ~isfield(c, 'I_k');     c.I_k  = 6.75; end% controls rate of decay of current spread in cm
+                    pt_ef=c.I_0./(1+c.I_k*Rd.^2);
                 else
                     warning('electric field model not specified in code');
                     %    pt_ef(R>c.e(idx(ii)).radius)=2/pi*(asin(c.e(idx(ii)).radius./R(R>c.e(idx(ii)).radius)));
@@ -645,7 +647,7 @@ classdef p2p_c
             end
             amp = (hi+lo)/2;
         end
-function trl = convolve_model(tp, trl)
+        function trl = convolve_model(tp, trl)
             % Implements 'finite_element' using the closed-form solution to
             % the respose to a pluse   Can be faster than 'finite_element'.
             % Assumes square pulse trains.
@@ -703,7 +705,7 @@ function trl = convolve_model(tp, trl)
                 % (1) R1 is going down since last event
                 % (2) R1 was going up before that, and
                 % (3) we're past the refractory period since the last spike
-                if Rtmp(i+1)<Rtmp(i) && wasRising 
+                if Rtmp(i+1)<Rtmp(i) && wasRising
                     spikeId(i) = 1; % check spike id identical in both loops IF CHECK
                     wasRising = 0;  % no longer rising
                     lastSpikeTime = trl.t(ptid(i+1));
@@ -719,29 +721,29 @@ function trl = convolve_model(tp, trl)
             trl.spikes = R1(spikeId);
             ptid = ptid(spikeId);
             if tp.gammaflag
-             %   if ~isfield(trl, 'imp_resp')  % danger - if pre-computed,
-             %   it wont change if tau2 changes.
-                    dt = t(2)-t(1);
-                    h = p2p_c.gamma(tp.ncascades,tp.tau2,t);            % Generate the n-cascade impulse response
-                    tid = find(cumsum(h)*dt>=.999,1,'first'); % Shorten the filter if needed to speed up the code.
-                    if ~isempty(tid)
-                        h = h(1:tid);
-                    else
-                        disp('Warning: gamma hdr might not have a long enough time vector');
-                    end
-                    trl.imp_resp = h;  % close enough to use h
-            %    end
+                %   if ~isfield(trl, 'imp_resp')  % danger - if pre-computed,
+                %   it wont change if tau2 changes.
+                dt = t(2)-t(1);
+                h = p2p_c.gamma(tp.ncascades,tp.tau2,t);            % Generate the n-cascade impulse response
+                tid = find(cumsum(h)*dt>=.999,1,'first'); % Shorten the filter if needed to speed up the code.
+                if ~isempty(tid)
+                    h = h(1:tid);
+                else
+                    disp('Warning: gamma hdr might not have a long enough time vector');
+                end
+                trl.imp_resp = h;  % close enough to use h
+                %    end
                 impFrames = [0:(length(trl.imp_resp)-1)];
                 resp = zeros(1,length(t)+length(trl.imp_resp));        % zero stuff out
-                
+
                 %reduction in spikes by inter-spike intervals:
                 interspike = [1,diff(trl.t(ptid))];
                 trl.spikes_norefrac = trl.spikes;
                 trl.spikes = trl.spikes.*(1-exp(-tp.refrac*(interspike+tp.delta)));
                 for i=1:length(trl.spikes)
-                        id = find(t>trl.t(ptid(i)),1,'first');
-                        resp(id+impFrames)  =   ...
-                            resp(id+impFrames) + trl.spikes(i)*trl.imp_resp;
+                    id = find(t>trl.t(ptid(i)),1,'first');
+                    resp(id+impFrames)  =   ...
+                        resp(id+impFrames) + trl.spikes(i)*trl.imp_resp;
                 end
                 resp = p2p_c.nonlinearity(tp, resp);
                 trl.maxresp = max(resp); % detection when maxresp goes above a threshold
@@ -958,7 +960,8 @@ function trl = convolve_model(tp, trl)
                 y = trl.ellipse(eye(e)).y+r.*sin(theta-trl.ellipse(eye(e)).theta);
                 plot(x,y,'-','LineWidth',1,'Color',lineColor);
             end
-
         end
+
     end
 end
+
