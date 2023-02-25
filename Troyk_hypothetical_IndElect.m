@@ -12,6 +12,8 @@ c.cortexLength = [-3, 20];
 c.pixpermm = 20; % default 6, resolution of electric field sampling, for very small electrodes may need to be decreased
 
 c = p2p_c.define_cortex(c); % define the properties of the cortical map
+
+
 tp = p2p_c.define_temporalparameters(); % define the temporal model
 % transform to visual space
 v.visfieldHeight = [-5,5];
@@ -22,6 +24,8 @@ v = p2p_c.define_visualmap(v); % defines the visual map
 trl.amp = 50; trl.freq = 50;
 trl.pw = 2*10^(-4);   trl.dur= 1;
 trl = p2p_c.define_trial(tp,trl);
+[c, v] = p2p_c.generate_corticalmap(c, v); % create ocular dominance/orientation/rf size maps on cortical surface
+
 
 wfma= create_WFMA(10, 0);
 ct = 1;
@@ -29,7 +33,7 @@ for e=1:2:length(wfma)
     c.e.radius = wfma(e).radius; c.e.x = wfma(e).x; c.e.y = wfma(e).y;
     v = p2p_c.c2v_define_electrodes(c,v); % convert electrode locations from cortex to visual space
     c = p2p_c.define_electrodes(c, v); % complete properties for each electrode in cortical space
-    [c, v] = p2p_c.generate_corticalmap(c, v); % create ocular dominance/orientation/rf size maps on cortical surface
+
     % set up the electrode locations in terms of their positions in the teeny array
     c = p2p_c.generate_ef(c); % generate map of the electric field for each electrode on cortical surface
 
@@ -41,11 +45,16 @@ for e=1:2:length(wfma)
     tmp_trl = p2p_c.generate_phosphene(v, tp, trl);
     figure(2)
    subplot(2, 8, ct)
-    p2p_c.plotretgrid(tmp_trl.maxphos(:, :, 1)*20, v, gray(256), 2,['';]); 
+   scFac = 8;
+   img = tmp_trl.maxphos(:, :, 1); 
+   img = img*scFac +75;
+    p2p_c.plotretgrid(img,  v, gray(256), 2,['';]); 
     a = gca; set(a, 'FontSize', 6);
         t = title(['E', num2str(e), 'LE' ]);    set(t, 'FontSize', 6);
      subplot(2,8, ct+8)
-    p2p_c.plotretgrid(tmp_trl.maxphos(:, :, 2)*20, v, gray(256), 2,['';]);
+        img = tmp_trl.maxphos(:, :, 2); 
+           img = img*scFac +75;
+    p2p_c.plotretgrid(img, v, gray(256), 2,['';]);
     t= title(['E', num2str(e), 'RE' ]);
     set(t, 'FontSize', 6);    a = gca; set(a, 'FontSize', 6);
  ct = ct+1;

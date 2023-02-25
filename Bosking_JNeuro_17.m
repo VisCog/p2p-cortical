@@ -5,7 +5,6 @@ n_e_sample = NaN; % how many electrodes to simulate, if NaN simulates all of the
 %%  begin by defining the location and size of electrodes
 all_v= Bosking_getData(42);
 
-
 % add some electrodes near the fovea, since we couldn't sample those from the paper
 morevals = linspace(.01, 2, 8);
 for i=43:50
