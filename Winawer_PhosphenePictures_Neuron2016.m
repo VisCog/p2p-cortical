@@ -22,6 +22,7 @@ colorList  = [ 0.5    0    0;   0.5 1 0.5;   1  0.8125    0; 0   0.8750   1;    
 tp = p2p_c.define_temporalparameters();
 
 for ii=1:5
+    disp(ii)
     v.eccList = [  1 2 3 5 8 13 21 34];
     v. pixperdeg = 18;
     c.pixpermm = 18;

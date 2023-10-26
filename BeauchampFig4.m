@@ -9,6 +9,8 @@
 % load in phosphene parameters
 T = readtable('datasets/Beauchamp_2020_data.xlsx','Sheet','ElectrodeLocations');
 eid =strcmp(T.experiment,'Figure 4');
+% figure 4-grid are locations based on the electrode array Figure 4 are
+% locations based on patient report
 T = T(eid,:)
 % Phosphene locations in visual space
 id = strcmp(T(:,:).patient,'YBN');
@@ -20,6 +22,11 @@ vy = T(id,:).y';
 p.k = 15;
 p.a = 0.5; %.1474;
 p.squish = 1; %.63;
+
+p.k= 16.1703
+p.a= 0.2630
+p.squish=  0.6479
+
 % electrode location and spacing on cortex
 p.ang = -30*pi/180;
 p.xc = -44;
@@ -78,6 +85,7 @@ x = ecc.*cos(ang);
 y = ecc.*sin(ang);
 [gridx,gridy] = p2p_c.v2c_real(p,x,y);
 plot(gridx,gridy,'k-','Color',[.5,.5,.5]);
+
 
 ang = repmat(p.angList,101,1);
 ecc = repmat(exp(linspace(log(min(p.eccList)),log(max(p.eccList)),101))',1,length(p.angList));

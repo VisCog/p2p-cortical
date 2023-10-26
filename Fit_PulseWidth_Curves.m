@@ -3,7 +3,7 @@
 % Fits a variety of pulse width data, examining how threshold varies with
 % pulse width
 %
-% Written by GMB & IF 
+% Written by GMB & IF
 % 25/02/2023 moved into clean folder (IF)
 
 tp = p2p_c.define_temporalparameters();
@@ -17,7 +17,7 @@ standard_trl.freq = 50;
 standard_trl.simdur = 3; %sec
 standard_trl = p2p_c.define_trial(tp,standard_trl);
 standard_trl= p2p_c.convolve_model(tp, standard_trl);
-tp.thresh_resp = standard_trl.maxresp;% use that as the threshold response
+tp.thresh_resp = standard_trl.maxresp; % use that as the threshold response
 
 % Now on to the real experiments...  Note, Henderson79 has no pd
 % experiment, and Girvin79 has two.
@@ -65,7 +65,7 @@ for i = 1:length(paperList)
     end
 end
 
-%% predict smooth pd curve using standard trial parameters. 
+%% predict smooth pd curve using standard trial parameters.
 % Should go through our standard trial's point: amp = 3 at pw = 1msec
 
 % make fake data table
@@ -90,10 +90,20 @@ sd = .15; % jitter
 fontSize = 12;
 figure(1); clf; hold on
 plot(log(pdList*1000),standard_thresh,'k-','LineWidth',2);
+
 for i=1:length(x)
+    ct = 1;
     h(i)= scatter(x{i}+2*sd*(rand(size(x{i}))-.5),y1{i},sz , 'MarkerFaceColor', colList{i},...
         'MarkerEdgeColor','none','MarkerFaceAlpha',alpha);
+    for j = 1:length(x{i})
+        data(ct) =y1{i}(j);
+        pred(ct)= interp1(pdList*1000, standard_thresh, exp(x{i}(j)));
+        ct = ct+1;
+    end
+    tmp = corrcoef(data, pred);
+    disp([legStr{i}, ' ', num2str(round(tmp(2),3))])
 end
+
 set(gca,'XTick',log(xtick)); logx2raw; ylabel('Threshold'); widen; grid;
 xlabel('Pulse Width (msec)'); ylabel('Amplitude @ Threshold');
 legend(h,legStr,'Location','NorthEast');
@@ -106,6 +116,7 @@ set(gca,'FontSize',fontSize);
 sd = 0;
 figure(2); clf; hold on
 plot(log(pdList*1000),standard_thresh,'k-','LineWidth',2);
+ct = 1;
 for i=1:length(x)
     h(i)= scatter(x{i}+2*sd*(rand(size(x{i}))-.5),y2{i},sz , 'MarkerFaceColor', colList{i},...
         'MarkerEdgeColor','none','MarkerFaceAlpha',alpha);

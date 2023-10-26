@@ -14,6 +14,13 @@
 % recommend going directly to their code which is publically available if
 % you want to plot their data).
 
+% OptimalSpacing
+% OptimalSpacing_main - calls the various sub programs
+% Optimal Spacing_Location - finds locations for optimal placement of
+% electrodes, can vary the spacing
+% OptimalSpacing_RFmap - generates the maps for those locations
+% OptimalSpacing_Movie - generates a cat movie, based on RF maps
+
 %% temporal maps
 % Plot_Temporal_Model.m
 % creates figure describing the temporal model       

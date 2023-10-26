@@ -18,10 +18,11 @@ rng(1171964)  % fix the random number generator. This affects the ocular dominan
 
 T = readtable('datasets/Winawer2016_data.xlsx');
 colorList  = [ 0.5    0    0;   0.5 1 0.5;   1  0.8125    0; 0   0.8750   1;     0     0    1 ]; % roughly match colors to Winawer paper
-
+v.drawthr  = 2;
 % use same cortex size and center across electrodes
 tp = p2p_c.define_temporalparameters();
-ct = 1;
+ct = 1;    
+allx = []; ally = []; % for collecting all the values to get correlation coefficients
 for ii=1:5
     v.eccList = [1 2 3 5 8 13 21 34 80];
     v. pixperdeg = 12;
@@ -29,6 +30,7 @@ for ii=1:5
     v.drawthr = 1;
 
     % set up v and c for each electrode
+
     switch ii
         case 1
             v.e.ang = 19.8;      v.e.ecc = 26.6;  c.e.radius = 1.150; % in cm
@@ -98,6 +100,11 @@ for ii=1:5
             'MarkerFaceColor',colorList(ii,:),...
             'MarkerEdgeColor', 'none', 'MarkerFaceAlpha', 0.5, 'SizeData', 50); hold on
         err(ii) = sum((log10(Texp.sim_area(goodVals))-log10(Texp.polyarea(goodVals))).^2);
+          
+        tmp = corrcoef(log10(Texp.sim_area(goodVals)), log10(Texp.polyarea(goodVals)));
+        allx = cat(1,allx, log10(Texp.sim_area(goodVals)));
+        ally = cat(1,ally, log10(Texp.polyarea(goodVals)));
+        disp(['correlation coeff  = ', num2str(tmp(1,2))]);
 
         % plot areas as a function of charge
         figure(2); hold on
@@ -144,3 +151,8 @@ for i = 1:2
     xlabel('Charge Deposited per Trial (\muC)');
     logx2raw(10);  logy2raw(10);
 end
+
+gvals =find( ~isinf(allx) .* ~isinf(ally) );
+[r, p] = corr(allx(gvals), ally(gvals));
+disp(['r =  ', num2str(round(r, 3)), ' p = ', num2str(round(p, 4)), ' df = ', num2str(length(allx)-2)]);
+

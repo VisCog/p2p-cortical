@@ -14,7 +14,7 @@
 
 clear
 rng;  % fix the random number generator. This affects the ocular dominance/orientation maps
-expList = {'Figure 4', 'Figure 6', 'Figure 4-grid'};
+expList ={'Figure 4-grid'};% {'Figure 4', 'Figure 6', 
 % Figure 4 and Figure 6 replicate the corresponding figures in Beauchamp's
 % paper. Figure 4 - grid uses the fact that we know the electrode array has
 % 2mm electrode separation and simulated the expected location of
@@ -22,11 +22,11 @@ expList = {'Figure 4', 'Figure 6', 'Figure 4-grid'};
 Te = readtable("datasets/Beauchamp_2020_data.xlsx", 'Sheet','ElectrodeLocations');
 To = readtable("datasets/Beauchamp_2020_data.xlsx", 'Sheet','ElectrodeOrder');
 
-v.visfieldHeight = [-35, 35]; v.visfieldWidth= [0,35]; v.pixperdeg = 24;
+v.visfieldHeight = [-35, 35]; v.visfieldWidth= [0,35]; v.pixperdeg = 18;
 v = p2p_c.define_visualmap(v);
 c.cortexHeight = [-35,35]; % degrees top to bottom, degrees LR,
 c.cortexLength = [-80, 5];
-c.pixpermm = 24; 
+c.pixpermm = 18; 
 c.squish = 0.63;
 c.a = .1474;
 c = p2p_c.define_cortex(c);
@@ -35,7 +35,7 @@ PLOT = 0;
 
 %% define cortical and visual space
 % find and plot the locations of the electrodes
-for ex = 3
+for ex = 1
     disp(['simulating ', expList{ex}]);
     subplot(1, length(expList), ex);
     eid =strcmp(Te.experiment,expList{ex});

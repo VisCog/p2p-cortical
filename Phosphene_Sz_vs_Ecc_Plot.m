@@ -3,53 +3,40 @@
 % electrode size and eccentricity
 %
 % written IF 05/03/2023
-clear 
+clear
 figure(1);clf
 
-T = readtable('datasets/PhospheneSz_vs_Ecc_keliris_newsize.xlsx');
-subplot(1,2,1)
+T = readtable('PhospheneSz_vs_Ecc_keliris.xlsx');
 szList = unique(T.esize);
-eccList = unique(T.eccentricity);
-clist = redgreen(length(szList));
+eccList = unique(T.eccentricity); 
+eccList = eccList(find(eccList<34));
+clist = viridis(length(szList)+1);
 for s = 1:length(szList)
+    eid1 = T.esize==szList(s);
     for ecc = 1:length(eccList)
-        eid =T.esize==szList(s) ;
-        Tid = T(eid, :);
-
+        eid2 = T.eccentricity==eccList(ecc) ;
+        Tid = T(find(eid1.*eid2), :);
+        if ~isempty(Tid)
+            mn_sz(s,ecc) = mean(Tid.sz_ellipse*2);
+            std(:, s,ecc) = abs(prctile(Tid.sz_ellipse*2, [5, 95])-mn_sz(s, ecc));
+        end
     end
-            h(s)=  plot(Tid.eccentricity, Tid.sz_ellipse*2, '.-',  ....
-           'Color', clist(s,:), 'MarkerSize', 18); hold on
+end
+
+for s = 1:length(szList)
+    hp=  plot(eccList, mn_sz(s, :), '.-',  ....
+        'MarkerFaceColor', clist(s,:), 'MarkerSize', 30, ...
+        'LineStyle', '-', 'LineWidth', 2, 'MarkerEdgeColor', clist(s,:), 'Color', clist(s,:)); hold on
+    sh =  shadedErrorBar(eccList, mn_sz(s, :),  squeeze(std(:, s, :)));
+    sh.patch.FaceColor = clist(s, :);
+        sh.patch.FaceColor = clist(s, :);
+         sh.mainLine.Color = clist(s, :);
+           sh.edge(1).Color ='none';  sh.edge(2).Color = 'none';
     if s==1
         linfit_keliris = polyfit(Tid.eccentricity, Tid.sz_sigma, 1); % use the smaller sigma size for packing
     end
 end
 title('Keliris'); xlabel('eccentricity');
-legend(h, num2str(round(szList/1000, 2)))
-axis([ 0 37 0 22])
-
-
-% so the simulation gets a bit blooey near the fovea (takes infinitely long
-% to do simulations at that resolution
-
-
-subplot(1,2,2)
-T = readtable('datasets/PhospheneSz_vs_Ecc_bosking_newsize_si.xlsx');
-szList = unique(T.esize);
-eccList = unique(T.eccentricity);
-clist = redgreen(length(szList));
-for s = 1:length(szList)
-    for ecc = 1:length(eccList)
-        eid =T.esize==szList(s) ;
-        Tid = T(eid, :);
-
-    end
-            h(s)=  plot(Tid.eccentricity, Tid.sz_ellipse*2, '.-',  ....
-           'Color', clist(s,:), 'MarkerSize', 18); hold on
-        if s==1
-        linfit_bosking = polyfit(Tid.eccentricity, Tid.sz_sigma, 1); % use the smaller sigma size for packing
-    end
-end
-plot(Tid.eccentricity, (0.1787 +Tid.eccentricity*0.262) , '--','Color', 'b', 'LineWidth', 1)
-title('Bosking'); xlabel('eccentricity');
-axis([ 0 37 0 22])
+legend(hp, num2str(round(szList/1000, 2)))
+axis([ 0 27 0 22])
 

@@ -11,7 +11,7 @@
 % 03/03/2023 moved electrodes into table format and split into separate size vs.
 % amplitude and size vs. eccentricity scripts (IF)
 
-
+close all
 n = 5;
 Tloc = readtable('datasets/Bosking2017_data.xlsx'); % note some foveal electrodes are faked since couldn't be identified on the plot
 eid = randperm(size(Tloc,1)); eid = eid(1:n);
@@ -29,56 +29,70 @@ v = p2p_c.define_visualmap(v);
 % temporal parameters
 tp = p2p_c.define_temporalparameters();
 tp.model = 'compression';
-tp.slope = 0.4300;
-tp.power = 10;
+v.drawthr = 1;
 
 % set up plots
 figure(1); hold on
-p2p_c.plotretgrid(0, v, gray(64), 1, ['']);
+p2p_c.plotretgrid(0, v, gray(64), 1, '');
 
-amp = [   50 100 150 200 250 500,750,1000,1500,2000,3000,4000]/10;
+amp = [  50,75,100,150,200,250, 300, 350, 400];
 dur =  200*10^-3*ones(size(amp));
 pw =  .1 * 10^-3*ones(size(amp));
 freq  = 200 *ones(size(amp));
 
 Tsim = table(amp', pw', freq', dur');
 Tsim.Properties.VariableNames = {'amp', 'pw','freq','dur'};
-all_trl = p2p_c.loop_convolve_model(tp, Tsim);
 
+e_loc = linspace(2, 12, 2); %exp(linspace(log(min(Tloc.ecc)), log(max(Tloc.ecc)), 7));
+scList = exp(linspace(log(.2), log(.7), 7));
 
-for ii=1
-    disp(sprintf('Electrode %d of %d',ii,n));
-    v.e.ecc = Tloc.ecc(ii);
-    v.e.ang = 0; % Tloc.ang(ii);
-    c.e.radius = 0.25;
-    c = p2p_c.define_electrodes(c, v);
-    c = p2p_c.generate_ef(c);
+if 1
+    for ii=1:length(e_loc)
+        disp(sprintf('Location %d of %d',ii,length(e_loc)));
+        for ss = 1:length(scList)
+            disp(sprintf('Scale factor %d of %d',ss,length(scList)));
+            v.e.ecc = e_loc(ii);
+            tp.sc_in = scList(ss);
+            all_trl = p2p_c.loop_convolve_model(tp, Tsim);
+            v.e.ang = 0; % Tloc.ang(ii);
+            c.e.radius = 0.25;
+            c = p2p_c.define_electrodes(c, v);
+            c = p2p_c.generate_ef(c);
 
-    figure(1) % show electrode location in visual space
-    plot([v.e.ecc].*cos([v.e.ang]),[v.e.ecc].*sin([v.e.ang]),'ko','MarkerFaceColor','w'); drawnow;
-    v = p2p_c.generate_corticalelectricalresponse(c, v);
-    for tt=1:length(amp)
-        trl = all_trl(tt);
-        trl = p2p_c.generate_phosphene(v, tp, trl);
-        img = mean(trl.maxphos, 3); % average over both eye-dominant cells
-        p2p_c.plotretgrid((img./max(img(:)))*256, v, gray(256), 2, ['';]);
-        trl.sim_radius= mean([trl.ellipse(1).sigma_x trl.ellipse(1).sigma_y]);
-        trl.sim_diameter = 2 * trl.sim_radius;
-        trl.sim_brightness = max(trl.maxphos(:));
-        trl.maxresp = max(trl.resp);
-        sim_sizes(ii,tt) =  trl.sim_diameter;
-        disp(['amp = ', num2str(amp(tt)), ' size ', num2str(sim_sizes(ii,tt))]);
-        drawnow;
+            figure(1) % show electrode location in visual space
+            plot([v.e.ecc].*cos([v.e.ang]),[v.e.ecc].*sin([v.e.ang]),'ko','MarkerFaceColor','w'); drawnow;
+            v = p2p_c.generate_corticalelectricalresponse(c, v);
+            for tt=1:length(amp)
+                trl = all_trl(tt);
+                trl = p2p_c.generate_phosphene(v, tp, trl);
+                img = mean(trl.maxphos, 3); % average over both eye-dominant cells
+                p2p_c.plotretgrid((img./max(img(:)))*256, v, gray(256), 2, ['';]);
+                p2p_c.draw_ellipse(trl, 3,'subplot(2,1,1)', '')
+                trl.sim_radius= mean([trl.ellipse(1).sigma_x trl.ellipse(1).sigma_y]);
+                trl.sim_diameter = 2 * trl.sim_radius;
+                trl.sim_brightness = max(trl.maxphos(:));
+                trl.maxresp = max(trl.resp);
+                sim_sizes(ii,ss, tt) =  trl.sim_diameter;
+                disp(['amp = ', num2str(amp(tt)), ' size ', num2str(sim_sizes(ii,tt))]);
+                drawnow;
+            end
+        end
     end
 end
-
 % Plot normalized size as a function of Current (figure 3D)
-max_size = max(sim_sizes, [], 2); % take the max over all the amplitudes
-y = sim_sizes./repmat(max_size,1,length(amp));
-
+disp('ready to plot')
+lineStyle = { '-', '--',};
+symStyle = {'o', 's'};
+colorList = viridis(length(scList)-2);
 figure(2); clf; hold on
-plot([0 amp(1:end)],[0 y(:,1:end)] ,'k-','LineWidth',1);
-plot(amp(1:end),y(:,1:end),'s','Color','k','MarkerFaceColor',.75*[1,1,1],'MarkerSize',18,'LineWidth',2);
+for ii = 1:length(e_loc)
+    for ss = 1:length(scList)-4
+        max_size = max(sim_sizes(ii, ss,  :)); % take the max over all the amplitudes
+        y = squeeze(sim_sizes(ii, ss, :)./max_size);
+        plot(amp,y ,'LineWidth',1, 'LineStyle', lineStyle{ii}, 'Color', colorList(ss,:));
+        plot(amp,y,symStyle{ii},'Color',colorList(ss, :),'MarkerFaceColor',colorList(ss, :),'MarkerEdgeColor',colorList(ss, :),'MarkerSize',11,'LineWidth',1); hold on
+    end
+end
 xlabel('Current (mA)');
 ylabel('Normalized phosphene size');
 set(gca,'XLim',[0,400]);

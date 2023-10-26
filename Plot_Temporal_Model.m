@@ -8,14 +8,13 @@
 % 28/02/2023 (gmb) added leaky integrator response (R1)
 
 tp = p2p_c.define_temporalparameters();
-tp.tau2 = .1;
 % Calculate model response to a standard trial
 clear trl;
 trl.pw = 0.002;
 trl.amp = 3;
 trl.dur = .05 ;
 trl.freq = 75;
-trl.simdur = 2.5; %sec
+trl.simdur = 1.5; %sec
 
 t_crop = round((trl.dur*1.2)/tp.dt);
 trl = p2p_c.define_trial(tp,trl);
@@ -71,7 +70,7 @@ title('Leaky Integrator Response');
 subplot(4, 1, 3)
 spikes = zeros(1, t_crop);
 spikes(trl.spikeWhen) = trl.spikes_norefrac;
-plot(tplot, spikes(1:t_crop), '-', 'Color', [.6 .6 .6]); hold on
+plot(tplot, spikes(1:t_crop), '--', 'Color', [.7 .7 .7], 'LineWidth', 2); hold on
 set(gca,'XLim',xlim);
 
 ylabel('Spikes');
@@ -83,7 +82,7 @@ title('Spikes with No Refractory Period');
 subplot(4, 1, 3)
 spikes = zeros(1, t_crop);
 spikes(trl.spikeWhen) = trl.spikes;
-plot(tplot, spikes(1:t_crop), 'k');
+plot(tplot, spikes(1:t_crop), 'k', 'LineWidth',2);
 set(gca,'XLim',xlim);
 ylabel('Spikes')
 xlabel('Time (msec)');
@@ -103,7 +102,7 @@ hold on
 plot([0,trl.dur],[0,0],'k-','LineWidth',4);
 plot(trl.t(1:tp.tSamp:end)-trl.lag, trl.resp, 'k-');
 set(gca,'YLim',[0,10]);
-set(gca,'XLim',[-trl.lag,2.5]);
+set(gca,'XLim',[-trl.lag,.75]);
 set(gca,'YTick',[0:2:8]);
 ylabel('Final Response');
 xlabel('Time (sec)');
@@ -114,7 +113,8 @@ title('Final Response')
 figure(2); clf
 subplot(1,3,1)
 h = p2p_c.gamma(tp.ncascades,tp.tau2,trl.t);
-plot(trl.t(1:tp.tSamp:end), h(1:tp.tSamp:end), 'k-');
+idx = trl.t(trl.t<1);
+plot(trl.t(1:tp.tSamp:800000), h(1:tp.tSamp:800000), 'k-');
 xlabel('Time (sec)');
 ylabel('Gamma filter response');
 title('Gamma filter');
@@ -133,7 +133,7 @@ title('Refractory Period filter');
 logx2raw(10); 
 
 subplot(1, 3,3)
-x = 0:.1:40;
+x = 0:.1:100;
 y = p2p_c.nonlinearity(tp,x);
 plot(x, y, 'k-'); hold on
 plot(x, x, '--', 'Color', [.5 .5 .5]);

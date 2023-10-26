@@ -10,9 +10,9 @@ tp = p2p_c.define_temporalparameters();
 
 % Calculate model response to a standard trial
 clear standard_trl;
-standard_trl.pw = 0.00025;
+standard_trl.pw = 0.001; %0.00025;
 standard_trl.amp = 3;
-standard_trl.dur = .5 ;
+standard_trl.dur = 1; %.5 ;
 standard_trl.freq = 50;
 standard_trl.simdur = 3; %sec
 standard_trl = p2p_c.define_trial(tp,standard_trl);
@@ -99,9 +99,16 @@ clear h
 
 figure(1); clf; hold on
 plot(log(freqList),standard_thresh,'k-','LineWidth',2);
-for i=1:length(x)
+for i=1:length(x)ct = 1;
     h(i)= scatter(x{i} + 2*sd*(rand(size(x{i}))-0.5),y1{i} + sd*(rand(size(x{i}))-0.5) ,sz , 'MarkerFaceColor', colList{i},...
         'MarkerEdgeColor','none','MarkerFaceAlpha',alpha);
+       for j = 1:length(x{i})
+        data(ct) =y1{i}(j);
+        pred(ct)= interp1(pdList*1000, standard_thresh, exp(x{i}(j)));
+        ct = ct+1;
+    end
+    tmp = corrcoef(data, pred);
+    disp([legStr{i}, ' ', num2str(round(tmp(2),3))])
 end
 
 set(gca,'XTick',log(xtick)); logx2raw(exp(1),0); ylabel('Threshold'); widen; grid;

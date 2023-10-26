@@ -29,7 +29,7 @@ c = p2p_c.define_cortex(c); % define the properties of the cortical map
 
 
 figNum = 1; figure(figNum); clf;
-p2p_c.plotcortgrid('', c, gray(256), figNum,[ 'title(''cortex'')']); drawnow;
+p2p_c.plotcortgrid(zeros(size(c.X)), c, gray(256), figNum,[ 'title(''cortex'')']); drawnow;
 savefig('figures/SimulateMaps_Fig1');
 figNum = 10;figure(figNum); clf;
 p2p_c.plotretgrid(zeros(size(v.X)), v, gray(256), figNum); drawnow
@@ -71,20 +71,38 @@ p2p_c.plotcortgrid((c.DISTmap+mnx)*256/(2*mnx), c, redgreen(256), figNum,[ 'titl
 set(gca, 'XLim', [5 10])
 set(gca, 'YLim', [-2.5 2.5]); 
 savefig('figures/SimulateMaps_Fig5_Inset');
-% rfsize
-figNum = 6;figure(figNum); clf;
-mnx =max(abs(c.DISTmap(:)));
-p2p_c.plotcortgrid(c.RFsizemap*74, c, cool(256), figNum,[ 'title(''simple vs. complex'')']); drawnow;
-savefig('figures/SimulateMaps_Fig6');
-figNum = 16;figure(figNum); clf;  imagesc(1:256); colormap(cool(256));
-colorbar('eastoutside')
-savefig('figures/SimulateMaps_Fig6_Inset');
 
+
+%% rfsize
+
+linCoolMap = cool(2048);
+compressionFac = .3;  % fiddle with this if you'd like.
+id = ceil(2047*linspace(0,1,256).^compressionFac)+1;
+cmap = linCoolMap(id,:);
+figNum = 6; figure(figNum); clf;
+mnx =max(abs(c.DISTmap(:)));
+p2p_c.plotcortgrid(c.RFsizemap*256/mnx, c, cmap, figNum,[ 'title(''simple vs. complex'')']); drawnow;
+savefig('figures/SimulateMaps_Fig6');
+origTicks = [0.2,0.4,0.8,1.6,3.2,4.8];
+ticks = (origTicks-min(c.RFsizemap(:)))/(max(c.RFsizemap(:))-min(c.RFsizemap(:)));
+ticks = ticks.^(compressionFac);
+figNum = 16;figure(figNum); clf;  image(1,linspace(0,1,256),[1:256]'); 
+set(gca,'Position',[.45,.05,.1,.9]);
+set(gca,'YDir','normal');
+set(gca,'ytick',ticks);
+set(gca,'YTickLabel',num2str(origTicks'));
+set(gca,'xtick',[]);
+colormap(cool(256));
+savefig('figures/SimulateMaps_Fig6_Inset');
+set(gca,'FontSize',12);
+
+
+%%
 % save individual receptive fields
-sz = 6*v.pixperdeg;
+lim = 5*v.pixperdeg;
 % cortical cells
 ct = 1;
-n_cells = 12; scFac = 600;
+n_cells = 12; 
 figure(7) ; clf
 while ct<=n_cells
     clist = randperm(prod(size(c.X)));
@@ -92,9 +110,10 @@ while ct<=n_cells
     mnRF = mean(RF, 3);
     if ~isnan(sum(mnRF(:)))
         [row, col] = find(abs(mnRF)==max(abs(mnRF(:))));
-        lim = sz*1.2;
+  %      lim = sz*1.2;
         if row>lim & col>lim & row<size(c.X, 1)-lim & col<size(c.X, 2)-lim
-            subplot(2, n_cells,ct); colormap(gray);
+            subplot(2, n_cells,ct); colormap(gray(256));
+            scFac = 127./max(abs(RF(:)));
             image(127 +(scFac*RF(row-sz:row+sz, col-sz:col+sz, 1)));axis square; axis off; drawnow;
             t =  title([round(c.v.ECC(clist(1)), 2) round(c.ODmap(clist(1)), 2)]);  set(t, 'FontSize', 6)
             subplot(2,n_cells,ct+n_cells); colormap(gray);
@@ -103,5 +122,4 @@ while ct<=n_cells
         end
     end
 end
-set(gcf, 'Position', [0.5913    0.1100    0.0501    0.3412]);
 savefig('figures/SimulateMaps_Fig7');

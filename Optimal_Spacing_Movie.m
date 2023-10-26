@@ -1,4 +1,4 @@
-% Optimal_Spacing_Movie.m
+function Array_Spacing_Movie()
 %
 % Replicates drawing task from Beauchamp dynamic stimulation paper
 % Beauchamp, M. S., Oswalt, D., Sun, P., Foster, B. L., Magnotti, J. F., Niketeghad, S., ... & Yoshor, D. (2020).

@@ -92,25 +92,36 @@ classdef p2p_c
                 c.k = 1/40; % scale Garrett, 2014 FOR V1 how many mm of cortex represents 1 degree of visual field
             end
             %% receptive fields
-            if ~isfield(c,'ar'); c.ar = 0.25; end % aspect ratio elongated rfs
+            if ~isfield(c,'ar'); c.ar = 0.25; end % aspect ratio elongated rfs, Ringach 2002, J. Neurophysiology
             if ~isfield(c, 'rfmodel');   c.rfmodel = 'ringach';  end
 
             if strcmp(c.animal, 'human')
                 if ~isfield(c, 'rfsizemodel')
                     c.rfsizemodel = 'keliris';  % Estimating average single-neuron visual receptive field sizes by fMRI. Keliris et al. PNAS 2019,
                 end
-                if strcmp(c.rfsizemodel, 'keliris')
-                    c.slope =  0.05; % in terms of sigma of a Gaussian
-                    c.intercept = 0.69;
+                if strcmp(c.rfsizemodel, 'keliris') % using Keliris electrophysiology from supplementary table 1
+                    c.slope = 0.08; % 0.05; % in terms of sigma of a Gaussian
+                    c.intercept = 0.16; % 0.69;
                     c.min = 0;
                     c.delta = 2; % to do with on off receptive fields
                 elseif strcmp(c.rfsizemodel, 'bosking') %  Saturation in Phosphene Size with Increasing Current Levels Delivered to Human Visual Cortex, Bosking et al. J Neurosci 2017
-                    c.slope =   0.05; % Bosking data is in terms of diameter, so take the values from Figure 4 (slope = 0.2620 and intercept  = 0.1787) and divide by 2
+                    c.slope =   9
+                    05; % Bosking data is in terms of diameter, so take the values from Figure 4 (slope = 0.2620 and intercept  = 0.1787) and divide by 2
                     c.intercept = 0.01;
                     c.min = 0;
                     c.delta = 2; % to do with on off receptive fields
+                elseif strcmp(c.rfsizemodel, 'winawer')
+                    c.slope = .1667;
+                    c.min = 1.11;
+                    c.intercept =  0.0721;
+                    c.delta = 2; % to do with on off receptive fields
                 end
             elseif strcmp(c.animal, 'macaque')
+                c.slope =  0.06; % in terms of sigma
+                c.intercept = 0.42;
+                c.min = 0;
+                c.delta = 2; % to do with on off receptive fields
+                elseif strcmp(c.animal, 'macaque')
                 c.slope =  0.06; % in terms of sigma
                 c.intercept = 0.42;
                 c.min = 0;
@@ -168,7 +179,6 @@ classdef p2p_c
             c.x = linspace(min(c.cortexLength),max(c.cortexLength), (max(c.cortexLength)-min(c.cortexLength))*c.pixpermm);
             c.y = linspace(min(c.cortexHeight),max(c.cortexHeight), (max(c.cortexHeight)-min(c.cortexHeight))*c.pixpermm);
             [c.X,c.Y] = meshgrid(c.x,c.y);
-
             sz = size(c.X);
 
             %% Make the orientation and OD maps by bandpassing random noise
@@ -193,6 +203,7 @@ classdef p2p_c
             Gx = angle(WX);
             c.ODmap = normcdf(Gx*c.sig);
 
+
             %% Make the on and off  maps by bandpassing random noise
             % The idea that these vary smootly is based on
             % Najafian, S., Koch, E., Teh, K.L. et al. A theory of cortical map formation in the visual brain.
@@ -212,7 +223,7 @@ classdef p2p_c
             W = conv2(Z,FILT,'same');
             u = (angle(W)/(pi)); % distance map
             tmp = zeros(size(u));
-            tmp(u>0) = -log(u(u>0))/c.delta; % exponential fall of of d, as describe by Ringach
+            tmp(u>0) = -log(u(u>0))/c.delta; % exponential fall of of d, as described by Mata & Ringach 2005
             tmp(u<0) = log(-u(u<0))/c.delta;
             c.DISTmap = tmp;
             WX = gradient(W);
@@ -230,7 +241,7 @@ classdef p2p_c
 
             v.zEcc = (v.eccList'*exp(sqrt(-1)*linspace(-90,90,v.n)*pi/180))';
             c.v.gridEcc = p2p_c.v2c_cplx(c, v.zEcc);
-            c.RFsizemap = max(c.slope .* abs(c.v.ECC), c.min) + c.intercept;
+            c.RFsizemap = max(c.slope.* abs(c.v.ECC) + c.intercept, c.min); 
 
             if ~isfield(c, 'cropPix')
                 c.cropPix  = c.v.ANG;
@@ -244,8 +255,8 @@ classdef p2p_c
         end
 
         function v = define_visualmap(v)
-            if ~isfield(v, 'visfieldHeight') v.visfieldHeight = [-30 30]; end
-            if ~isfield(v, 'visfieldWidth') v.visfieldWidth = [-30 30]; end
+            if ~isfield(v, 'visfieldHeight'); v.visfieldHeight = [-30 30]; end
+            if ~isfield(v, 'visfieldWidth'); v.visfieldWidth = [-30 30]; end
             if ~isfield(v,'pixperdeg');     v.pixperdeg = 7;       end
             if ~isfield(v, 'drawthr');     v.drawthr = 1;    end
             v.x = linspace(v.visfieldWidth(1),v.visfieldWidth(2), (v.visfieldWidth(2)-v.visfieldWidth(1)).*v.pixperdeg);
@@ -268,7 +279,6 @@ classdef p2p_c
             if ~isfield(c.e, 'shape')
                 for ii=1:length(idx);     c.e(idx(ii)).shape = 'round';    end
             end
-
             if ~isfield(v.e, 'ang')  % if putting in x, y co-ordinates rather than ang and ecc which is the default
                 for ii = 1:length(idx)
                     [a, e]= cart2pol(v.e(idx(ii)).x, v.e(idx(ii)).y);
@@ -276,12 +286,9 @@ classdef p2p_c
                     v.e(idx(ii)).ecc = e;
                 end
             end
-
             for ii = 1:length(idx)
                 [v.e(idx(ii)).x, v.e(idx(ii)).y] = pol2cart(v.e(idx(ii)).ang*pi/180, v.e(idx(ii)).ecc);
             end
-
-
             for ii = 1:length(idx)
                 c.e(idx(ii)).area = pi*(c.e(idx(ii)).radius.^2);
                 [c.e(idx(ii)).x, c.e(idx(ii)).y] = p2p_c.v2c_real(c,v.e(idx(ii)).x, v.e(idx(ii)).y);
@@ -310,42 +317,83 @@ classdef p2p_c
                     error('electrode is either outside or too close to the edge of the cortical sheet');
                 end
                 rfmap = zeros([size(v.X), 2]); % percept that includes a cortical model
-
+                ct = 0;
                 for pixNum = 1:length(c.X(:)) % for each cortical location
-                    if (pixNum/100000 ==round(pixNum/100000))
+                    if (pixNum/400000 ==round(pixNum/400000))
                         per =round(100*pixNum/length(c.X(:)));
                         disp(['generating cortical electrical response ', num2str(per), '% complete']);
                     end
                     if ~isnan(c.cropPix(pixNum)) && abs(c.e(idx(ii)).ef(pixNum)) > c.efthr * 255
                         RF = p2p_c.generate_corticalcell(double(c.e(idx(ii)).ef(pixNum)), pixNum, c, v);
+                        if ndims(RF)==4
+                            RF = squeeze(RF(:, :, :, 1)); % don't worry about inhibition
+                        end
+                        if ~isempty(find(isnan(RF(:)), 1))
+                            disp('wtf')
+                        end
                         rfmap(:, :, 1)  =   rfmap(:, :, 1) + RF(:, :, 1);
                         rfmap(:, :, 2)  =   rfmap(:, :, 2) + RF(:, :, 2);
+                        ct = ct+1;
                     end
                 end
-                if sum(rfmap(:)>0)<20
-                    disp('WARNING! Too few pixels passed ef threshold.');
+                if ct <c.e(ii).radius*10
+                    if ct ==0;    disp('WARNING! No pixels passed ef threshold.');
+                    else;    disp('WARNING! Very few pixels passed ef threshold.');
+                    end
                     disp(' try checking the following:');
                     disp('lowering c.efthr or increase stimulation intensity');
                     disp('checking location of electrodes relative visual map');
                     disp('check the sampling resolution of cortex is not too low');
                 end
-                v.e(idx(ii)).rfmap = rfmap./abs(max(rfmap(:)));
+                v.e(idx(ii)).rfmap = rfmap./max(abs(rfmap(:)));
             end
         end
+        function [v, c] = generate_corticalvisualresponse(c, v)
+            if ~isfield(c, 'rfmodel')
+                c.rftype = 'ringach';
+            end
+            c.target.R = NaN(size(c.X));      c.target.R  =       c.target.R (:);
+            % convolve the of  receptive fields with the visual stimulus
+            for pixNum = 1:length(c.X(:)) % for each cortical location
+                if (pixNum/100000 ==round(pixNum/100000))
+                    per =round(100*pixNum/length(c.X(:)));
+                    disp(['generating cortical visual response ', num2str(per), '% complete']);
+                end
+                if ~isnan(c.cropPix(pixNum))
+                    RF = p2p_c.generate_corticalcell(1, pixNum, c, v);
+                    if ~isempty(find(~isnan(RF(:)), 1))
+                        on =  squeeze(RF(:, :, 1, 1)).*v.target.img; % on response to target
+                        %off =  squeeze(RF(:, :, 1, 2)).*v.target.img; % suppressive response to target
+                        c.target.R(pixNum) =sum(on(:));
+                        error('this code no work yet')
+                    end
+                end
+            end
+            c.target.R = reshape(c.target.R, size(c.X));
+        end
+
+        function G = Gauss_2D(v,x0,y0,theta,sigma_x,sigma_y)
+            % Generates oriented 2D Gaussian on meshgrid v.X,v.Y
+            aa = cos(theta)^2/(2*sigma_x^2) + sin(theta)^2/(2*sigma_y^2);
+            bb = -sin(2*theta)/(4*sigma_x^2) + sin(2*theta)/(4*sigma_y^2);
+            cc = sin(theta)^2/(2*sigma_x^2) + cos(theta)^2/(2*sigma_y^2);
+            G = exp( - (aa*(v.X-x0).^2 + 2*bb*(v.X-x0).*(v.Y-y0) + cc*(v.Y-y0).^2));
+        end
+
         function RF = generate_corticalcell(ef, pixNum, c, v)
             x0 = c.v.X(pixNum); % x center
             y0 = c.v.Y(pixNum); % y center
             od = c.ODmap(pixNum);
             theta = pi-c.ORmap(pixNum);  %orientation
-            sigma_x = c.RFsizemap(pixNum) * c.ar; % major axis sd
-            sigma_y = c.RFsizemap(pixNum); % minor axis sd
+            sigma_x = c.RFsizemap(pixNum)*c.ar; % minor axis sd
+            sigma_y = c.RFsizemap(pixNum); % major axis sd
 
             % calculates a rf for a given location. Usually 3d (x, y and
             % eye) but for the ringach model it's 4d (x, y, eye,
             % on/off)
             if strcmp(c.rfmodel, 'scoreboard')
                 % scoreboard version
-                G = ef * exp(-( (v.X-x0).^2/(0.01) + (v.Y-y0).^2/(.01)));
+                G = ef * exp(-( (v.X-x0).^2/(0.0001) + (v.Y-y0).^2/(.00001)));
                 RF(:, :, 1) = G;
                 RF(:, :, 2) = G;
             elseif strcmp(c.rfmodel, 'smirnakis')
@@ -368,8 +416,8 @@ classdef p2p_c
                 % oriented gaussian, only their central location and their
                 % amplitudes differ
                 tmp  = exp( -(aa*(v.X-x0).^2 + 2*bb*(v.X-x0).*(v.Y-y0) + cc*(v.Y-y0).^2));
-                A = sqrt(sum(tmp(:)>0.02)/v.pixperdeg.^2);
-                d = c.DISTmap(pixNum)/A; % select a random d value
+                A = sqrt((sum(tmp(:)>0.2)/v.pixperdeg.^2));
+                d = c.DISTmap(pixNum) * A; % select a random d value
 
                 % now create the real on and off fields, that are centered
                 % on different locations in space and have variable
@@ -377,28 +425,35 @@ classdef p2p_c
                 x_off = x0 + (d/2).*cos(theta); y_off = y0 - (d/2).*sin(theta);
                 x_on = x0 - (d/2).*cos(theta); y_on = y0 + (d/2).*sin(theta);
 
-                % on subunit for bright dots
-                hplus_on =  exp( - (aa*(v.X-x_on).^2 + 2*bb*(v.X-x_on).*(v.Y-y_on) + cc*(v.Y-y_on).^2));
-                hplus_on = hplus_on./sum(hplus_on(:)); % response to bright dots, from the on subunit
-                hminus_on = 0.4 * hplus_on;% response to dark  dots, from the on subunit
-
-                % off subunit with dark dots
-                hplus_off = exp( - (aa*(v.X-x_off).^2 + 2*bb*(v.X-x_off).*(v.Y-y_off) + cc*(v.Y-y_off).^2));
-                hplus_off = hplus_off./sum(hplus_off(:)); % response to dark dots, from the off subunit
-                hminus_off = 0.4 * hplus_off; % response to bright dots, from the off subunit
-
                 wplus = c.ONOFFmap(pixNum); % scales the on subunit:  hplus_on and hminus_on
                 wminus = 1-c.ONOFFmap(pixNum); % scales the off subunit: hplus_off and hminus_off
+
+                % on subunit for bright dots
+                hplus_on =  exp( - (aa*(v.X-x_on).^2 + 2*bb*(v.X-x_on).*(v.Y-y_on) + cc*(v.Y-y_on).^2));
+                hplus_on = hplus_on./max(abs(hplus_on(:))); % response to bright dots, from the on subunit
+                hplus_on = hplus_on * wplus;
+
+                % off subunit, suppression with dark dots
+                hplus_off = exp( - (aa*(v.X-x_off).^2 + 2*bb*(v.X-x_off).*(v.Y-y_off) + cc*(v.Y-y_off).^2));
+                hplus_off = hplus_off./abs(max(hplus_off(:))); % response to dark dots, from the off subunit
+                hplus_off = hplus_off *wminus * c.onoff_ratio;
+
+                hminus_off = -0.4 * hplus_off; % inhibitory response to bright dots, from the off subunit
+                hminus_on = -0.4 * hplus_on;% inhibitory response to dark  dots, from the on subunit
+
                 % add the off component for bright and dark dots, and scale relative
                 % amplitudes
-                bright = wplus*hplus_on + wminus*hminus_off; % brightness signal
-                dark = wminus*hplus_off + wplus*hminus_on; % darkness signal
+                % bright = hplus_on + hminus_off; % response to bright dots
+                % dark = hplus_off + hminus_on; % response to dark dots
 
-                RF(:, :, 1)  =   od*ef*(bright-(c.onoff_ratio.*dark));
-                RF(:, :, 2)  =  (1-od)*ef*(bright-(c.onoff_ratio.*dark));
+                excitatory = hplus_on  - c.onoff_ratio*hplus_off; %
+                inhibitory =hminus_on  - c.onoff_ratio*hminus_off ; % produces brightness where dark dots inhibiting
 
-                RF(:, :, 1)  =   od*ef*(dark-(c.onoff_ratio.*bright));
-                RF(:, :, 2)  =  (1-od)*ef*(dark-(c.onoff_ratio.*bright));
+                RF(:, :, 1, 1)  =  od*ef*excitatory; % excitatory response
+                RF(:, :, 2, 1)  =  (1-od)*ef*excitatory;
+
+                RF(:, :, 1, 2)  =  od*ef*inhibitory;
+                RF(:, :, 2, 2)  =  (1-od)*inhibitory;
             else
                 error('c.rfmodel model not recognized')
             end
@@ -448,12 +503,12 @@ classdef p2p_c
             end
             if ~isfield(tp, 'dt');       tp.dt = .001 * 10^-3; end % 001 time sampling in ms, should be no larger than 1/10 of tau1
             if ~isfield(tp, 'tau1');   tp.tau1 =0.0003; end % fixed based on Nowak and Bullier, 1998
-            if ~isfield(tp, 'refrac');   tp.refrac = 50 ; end % refractory period for spikes
-            if ~isfield(tp, 'delta');   tp.delta = 0.001 ; end % decay parameter for refractory period
+            if ~isfield(tp, 'refrac');   tp.refrac = 100; end; %50 ; end % extent of attenuation for refractory period
+            if ~isfield(tp, 'delta');   tp.delta = 0.001; end%0.001 ; end % decay parameter for refractory period
 
             if ~isfield(tp, 'tSamp');   tp.tSamp = 1000;end % subsampling to speed things up
             % fit based on Brindley, 1968, Tehovnk 2004 estimates 0.13-0.24 ms
-            if ~isfield(tp, 'tau2');   tp.tau2 =  0.15;  end     % 24-33 from retina
+            if ~isfield(tp, 'tau2');   tp.tau2 =  0.025; end%0.15;  end     % 24-33 from retina % IFCHANGE
             if ~isfield(tp, 'ncascades');  tp.ncascades = 3;   end% number of cascades in the slow filter of the temporal convolution
             if ~isfield(tp, 'gammaflag');   tp.gammaflag = 1;   end            %  include second stage game
 
@@ -461,11 +516,12 @@ classdef p2p_c
             %   tp.flag_cl=0; % 1 if you want to charge to leak back out of the system
             %   tp.tau2_cl = tp.tau2_ca * 8; % used for the conv model, fe uses p.tau2_ca
 
-            % nonlinearity parameters
+            % nonlinearity response parameters
+             if ~isfield(tp, 'sc_in');   tp.sc_in =0.5663;   end    
             if ~isfield(tp, 'model');  tp.model = 'compression'; end
             if strcmp(tp.model, 'compression')
-                if ~isfield(tp, 'power'); tp.power =  10; end % chosen cos max brightness rating
-                if ~isfield(tp, 'slope'); tp.slope =  0.4300; end % fit using Winawer brightness data
+                if ~isfield(tp, 'power'); tp.power =  15.5901; end % chosen cos max brightness rating
+                if ~isfield(tp, 'sc_out'); tp.sc_out = 10; end % fit using Winawer brightness data
             elseif strcmp(tp.model, 'sigmoid')
                 disp('using sigmoid semisaturation constant')
                 tp.asymptote = 2000;
@@ -484,6 +540,11 @@ classdef p2p_c
         end
 
         %% psychophysics
+        function v = generate_visualtarget(v)
+            [x, y] = pol2cart(v.e.ang, v.e.ecc-v.target.offset);
+            v.target.img = sqrt(((v.X-x).^2)+((v.Y-y).^2))<v.target.rad;
+        end
+
         function [err, thresh] = loopall_find_threshold(tp,T)
             %
             % Runs the 'conv' model to get thresholds based on trials in the table 'T'.
@@ -502,22 +563,22 @@ classdef p2p_c
                 clear trl;  trl.pw = T.pw(i);   trl.amp = 1;    trl.dur = T.dur(i);     trl.freq = T.freq(i);   trl.simdur = 3; %sec
                 trl = p2p_c.define_trial(tp,trl);
 
-                tp.scFacInd = 1;     % separate 'scFac' for each experiment
+                tp.sc_in_ind = 1;     % separate 'scFac' for each experiment
                 if isfield(tp,'experimentList')  % set tp_thresh accordingly for this trial
                     experimentNum = find(strcmp(T.experiment{i},tp.experimentList));
                     if ~isempty(experimentNum)  % set thresh_resp for this experiment.
-                        tp.scFacInd = experimentNum;
+                        tp.sc_in_ind = experimentNum;
                     end
                 end
                 thresh(i)= p2p_c.find_threshold(trl,tp);
             end
 
             err = nansum((thresh-T.amp').^2);
-            %    disp(sprintf('tau1 = %g, tau2 = %g, power = %5.2f err= %5.4f  scFac= %5.4f',  tp.tau1,tp.tau2,tp.power,err, tp.scFac));
+            %    disp(sprintf('tau1 = %g, tau2 = %g, power = %5.2f err= %5.4f  sc_in= %5.4f',  tp.tau1,tp.tau2,tp.power,err, tp.sc_in));
             disp(fprintf('mean = %g, sigma = %g,  err= %5.4f\n',  tp.mean,tp.sigma,err));
             if isfield(tp,'experimentList')
                 for i = 1:length(tp.experimentList)
-                    disp(fprintf('%10s: %g\n',tp.experimentList{i},tp.scFac(i)));
+                    disp(fprintf('%10s: %g\n',tp.experimentList{i},tp.sc_in(i)));
                 end
             end
         end
@@ -543,14 +604,14 @@ classdef p2p_c
 
             if strcmp('amp',T.Properties.VariableNames)
                 err = nansum((thresh-T.amp').^2);
-                disp(sprintf('err= %5.4f',  err));
+                disp(['err = ',  num2str(round(err, 3))]);
             else
                 err = NaN;
             end
 
             if isfield(tp,'experimentList')
                 for i = 1:length(tp.experimentList)
-                    disp(sprintf('%10s: %g',tp.experimentList{i},tp.scFac(i)));
+                    disp(sprintf('%10s: %g',tp.experimentList{i},tp.sc_in(i)));
                 end
             end
         end
@@ -561,8 +622,8 @@ classdef p2p_c
             y = reshape(y, length(y), 1);
             ind = ~isnan(y_est) & ~isnan(y);
             err = sum((y(ind)- y_est(ind)).^2);
-            disp(sprintf('tau1 =%5.4f, tau2 =%5.4f, power =%5.4f, slope =%5.4f, sse = %5.4f',  ...
-                tp.tau1, tp.tau2, tp.power,tp.slope, err));
+            disp(sprintf('tau1 =%5.4f, tau2 =%5.4f, power =%5.4f, sc_in =%5.4f, sc_out =%5.4f, sse = %5.4f',  ...
+                tp.tau1, tp.tau2, tp.power,tp.sc_in, tp.sc_out, err));
         end
 
         function [loop_trl] = loop_convolve_model(tp,T)
@@ -685,7 +746,7 @@ classdef p2p_c
             % and add impulse responses when R1 peaks and is after the refractory period.
             spikeId = logical(size(Rtmp));
             for i=1:(length(ptid)-1)
-                tNow = trl.t(ptid(i+1));
+            %    tNow = trl.t(ptid(i+1));
                 delta = trl.t(ptid(i+1))-trl.t(ptid(i));  % time since last 'event'
                 % Closed form solution to leaky integrator that predicts
                 % R(i+1) from R(i), delta and tau1:
@@ -699,7 +760,7 @@ classdef p2p_c
                 if Rtmp(i+1)<Rtmp(i) && wasRising
                     spikeId(i) = 1; % check spike id identical in both loops IF CHECK
                     wasRising = 0;  % no longer rising
-                    lastSpikeTime = trl.t(ptid(i+1));
+                %    lastSpikeTime = trl.t(ptid(i+1));
                 else
                     wasRising =1;
                 end
@@ -726,7 +787,7 @@ classdef p2p_c
                     %   it wont change if tau2 changes.
                     dt = t(2)-t(1);
                     h = p2p_c.gamma(tp.ncascades,tp.tau2,t);            % Generate the n-cascade impulse response
-                    tid = find(cumsum(h)*dt>=.999,1,'first'); % Shorten the filter if needed to speed up the code.
+                    tid = find(cumsum(h)*dt>=.999,1,'first'); % Shorten the filter if needed to speed up the code. IF CHANGE
                     if ~isempty(tid)
                         h = h(1:tid);
                     else
@@ -734,7 +795,7 @@ classdef p2p_c
                     end
                     trl.imp_resp = h;  % close enough to use h
                     %    end
-                    impFrames = [0:(length(trl.imp_resp)-1)];
+                    impFrames = 0:(length(trl.imp_resp)-1);
                     resp = zeros(1,length(t)+length(trl.imp_resp));        % zero stuff out
 
                     %reduction in spikes by inter-spike intervals:
@@ -761,10 +822,10 @@ classdef p2p_c
         end
 
         %% utilities
-        function out=chronaxie(p,pw)
+        function out = chronaxie(p,pw)
             out = p.amp./(p.tau*(1-exp(-pw/p.tau)));
         end
-        function y=gamma(n,k,t)
+        function y = gamma(n,k,t)
             %   y=gamma(n,k,t)
             %   returns a gamma function on vector t
             %   y=(t/k).^(n-1).*exp(-t/k)/(k*factorial(n-1));
@@ -777,25 +838,27 @@ classdef p2p_c
             y(t<0) = 0;
         end
         function y = nonlinearity(tp,x)
-            if ~isfield(tp, 'scFac');    scFac = 1;
-            else scFac  =  tp.scFac; end
+            if ~isfield(tp, 'sc_in');    tp.sc_in = 1;
+            else
+                sc_in  =  tp.sc_in;
+            end
             % some of our favorite static nonlinearities:
             switch tp.model
                 case 'sigmoid'
-                    y = scFac .* x.^tp.power./(x.^tp.power + tp.sigma.^2);
+                    y = sc_in .* x.^tp.power./(x.^tp.power + tp.sigma.^2);
                 case 'normcdf'
                     y = normcdf(x, tp.mean, tp.sigma);
                     y(y<0) = 0;
                 case 'weibull'
-                    y = scFac*p2p_c.weibull(tp,x);
+                    y = sc_in*p2p_c.weibull(tp,x);
                 case 'power'
-                    y = scFac*x.^tp.power;
+                    y = sc_in*x.^tp.power;
                 case 'exp'
-                    y = scFac*x.^tp.k;
+                    y = sc_in*x.^tp.k;
                 case 'compression'
-                    y = tp.power.*tanh((x*tp.slope)/tp.power);
+                    y = tp.sc_in.*(tp.power.*tanh((x*tp.sc_in)/tp.power));
                 case 'linear'
-                    y = tp.slope.*x;
+                    y = tp.sc_in.*x;
             end
         end
         function [p] = weibull(params, x)
@@ -839,6 +902,323 @@ classdef p2p_c
             p = 1 - ((1-params.g) * exp(-(k*x/params.t).^params.b));
         end
 
+        %% hypothetical array stuff
+        function a = Array_Sim_Location(c, a)
+            % simulates the left visual field (vx should be negative) and right cortex (cx should be positive)
+            % takes in parameters
+            % c - cortical surface
+            % a - description of the array
+            % p  - plotting parameters
+            %
+            % creates various arrays:
+            % regular_cortex  - electrodes even on visual cortex
+            % regular_visual field - evenly spaced phosphenes in visual apce
+            % optimal - electrode spacing based on phosphene size
+
+            if nargin <2
+                a.arrayStyle = 'optimal';
+            end
+            if ~isfield(a, 'eccLim'); a.eccLim = [0 32]; end % range covered by the array
+            if ~isfield(c, 'slope') ;  c.slope = .08; end % using Keliris electrophysiology from supplementary table 1
+            if ~isfield(c,'intercept') ;  c.intercept = .16;    end
+            if ~isfield(a, 'rf_sz'); a.rf_sz = (c.intercept+a.eccLim*c.slope); end %  rf sizes as a funtion of eccentricity
+
+            if strcmp(a.arrayStyle, 'optimal')
+                % Packs phosphenes in visual space that vary in size as a parametric  function of eccentricity.
+                %  Phosphene centers are then projected into
+                % Schwartz cortical space to show how spacing of electrodes are less
+                % densely packed near the fovea.
+
+                if ~isfield(a, 'spaceFac'); a.spaceFac = 1; end % separation of the electrodes, used for the optimal array
+
+                % Pack phosphenes by generating optimal spacing along the horizontal meridian by adding up
+                % phosphene sizes
+                xi = 0;        si = 0;      i = 1;
+                while(xi(end)+si(end)<a.eccLim(2))
+                    si(i) = a.spaceFac*(xi(i)*c.slope+c.intercept);
+                    xi(i+1) =(xi(i)+a.spaceFac*(si(i)+c.intercept)/2)/(1-c.slope/2);
+                    i=i+1;
+                end
+                si(i) = a.spaceFac*(xi(i)*c.slope+c.intercept);
+
+                % make concentric rings of phosphene at each spacing distance
+                % a.vx a.vy are the positions of the phosphenes of the array in visual space
+                ni = floor(2*pi*xi./si)';
+                vx = 0;   vy = 0;
+                for i=1:1:length(xi)
+                    ang = linspace(0,2*pi,ni(i)+1)';
+                    vx = [vx;xi(i).*cos(ang)];
+                    vy = [vy;xi(i).*sin(ang)];
+                end
+                vx = vx-.0001;   % Hack to get the foveal phosphene inside the plotting range
+                a.nelect  = length(vx); % calculate how many electrodes we get with this spacing
+
+            elseif  strcmp(a.arrayStyle, 'regular_visualfield')
+                if ~isfield(a, 'nelect'); a.nelect =1880; end % corresponds to a spacing of 1 with fov 32 using optimal array
+                spacing = ceil(sqrt(a.nelect));
+                if mod(spacing,2)==1
+                    spacing = spacing +1;
+                end
+                tmp = linspace(-a.eccLim(2), a.eccLim(2), spacing);
+                [vx, vy] = meshgrid(tmp, tmp); % match resolution of optimal array
+                vx = vx(:); vy = vy(:);
+
+            elseif  strcmp(a.arrayStyle, 'regular_cortex')
+                if ~isfield(a, 'nelect'); a.nelect = 1880; end % corresponds to a spacing of 1 with fov 32 using optimal array
+
+                [c_Length,~] = p2p_c.v2c_real(c, -a.eccLim(2),0);            % find axis limits
+                [~,c_Height] = p2p_c.v2c_real(c,0,-a.eccLim(2));           % find axis limits
+                c_Length = c_Length*1.2;     c_Height = c_Height*1.2;
+                c_spacing = sqrt((c_Length*c_Height)/(a.nelect/2));
+
+                c_Length = 0:c_spacing:c_Length;
+                c_Height = 0:c_spacing:c_Height;
+                c_Height = [-fliplr(c_Height(2:end)),c_Height];
+                [cx, cy] = meshgrid(c_Length ,c_Height ); % create a grid on cortex
+
+                cx = cx(:); cy = cy(:);
+                ok = p2p_c.isValidCortex(c,cx,cy);
+                [vx, vy] =  p2p_c.c2v_real(c,cx(ok), cy(ok));
+                vx = cat(1, vx, -vx);vy = cat(1, vy, vy); % flip to the other side of the visual field
+            else
+                error('array.arrayStyle not recognized')
+            end
+            a.vx = vx(:); a.vy =vy(:);
+            disp(a.arrayStyle)
+            disp(['# electrodes = ',num2str(length(a.vx))]);
+            a.actual_nelect = length(a.vx);
+            a.res = c.pixpermm;
+            a.Tfull = table(vx, vy);
+            disp(['computed number of electrodes  = ' , num2str(length(vx))]);
+        end
+        function sz  = ecc2sz(a, ecc)
+            % Support function for Array_Sim_Location
+            % interpolate data to get phosphene size at locations x
+            ecc = min(ecc, max(a.eccLim));
+            sz = interp1(a.eccLim,a.rf_sz, ecc);
+        end
+        function Array_Sim_Plot(a, c, varargin)
+            % Plots the array in visual space and cortical co-ordinates
+            if nargin<3
+                p.electrodeSize = 1; % p represents plotting parameters
+            else
+                p = varargin{1};
+            end
+
+            if ~isfield(p, 'electrodeSize');       p.electrodeSize =1; end
+            if ~isfield(p, 'eccLim'); p.eccLim =[ 0, 32]; end %  [0,2.^ceil(log2(a.eccLim(2)))]; round to the nearest power of two
+            if ~isfield(p, 'eccList'); p.eccList = [0,2.^(1:log2(p.eccLim(2)))]; end % eccentricity ring locations
+            if ~isfield(p, 'angList'); p.angList = [90.1,135,180,225,270]*pi/180; end
+            if ~isfield(p, 'ncol'); p.ncol = 256; end % number of colors in the colormap
+            if ~isfield(p, 'cmap_scale'); p.cmap_scale = .25;end % how much of the colormap to use
+            if ~isfield(p, 'symShape'); p.symShape = 'square'; end % shape of the symbols on the cortical map, 'square' or 'circle'
+            if ~isfield(p, 'plotNums'); p.plotNums = 1:4; end
+
+            % size vs eccentricity
+            figure(p.plotNums(1));     set(gcf, 'Name' , "Phos Size vs. Ecc")
+            ecc = linspace(p.eccLim(1),p.eccLim(2),p.ncol+1);
+            sz = p2p_c.ecc2sz(a, ecc); % interpolate to find phosphene sizes at eccentricities defined by x
+            idx = find(ecc<=a.eccLim(2));
+            plot(ecc(idx), sz(idx),'-','Color',[.5,.5,.5],"LineWidth",2);
+            set(gca,'YLim',[0,max(sz)*1.1]);    grid
+            xlabel('Eccentricity (deg)');     ylabel('Phosphene size (deg)');
+
+            % draw the phosphenes in visual coordinates, left visual field
+            figure(p.plotNums(2)); clf; set(gcf, 'Name', 'left visual field electrodes'); hold on
+            id = a.vx<=0;
+            rad = sqrt(a.vx.^2+a.vy.^2);
+            a.sz = c.slope*rad + c.intercept; % receptive field size of each electrode
+            cmap = hsv(p.ncol);            % define colors for each electrode/phosphene
+            col = 0.9*ones(length(id),3);  % gray
+            scFac = p.cmap_scale*(p.ncol)/a.rf_sz(2); %scaling to get the right range in the colormap
+            col(id,:) = cmap(min(ceil(a.sz(id)*scFac),p.ncol),:);
+
+            ecc = repmat(p.eccList,p.ncol+1,1);
+            ang = repmat(linspace(pi/2,3*pi/2,p.ncol+1)',1,length(p.eccList));
+            gridx = ecc.*cos(ang);       gridy = ecc.*sin(ang);
+            plot(gridx,gridy,'k-','Color',[.5,.5,.5]);
+            ang = repmat(p.angList,p.ncol+1,1);
+            ecc = repmat(exp(linspace(-20,log(max(p.eccList)),p.ncol+1))',1,length(p.angList));
+            gridx = ecc.*cos(ang);    gridy = ecc.*sin(ang);
+            cx = cos(linspace(-pi,pi,61));        cy = sin(linspace(-pi,pi,61));   % unit circle
+            for i=1:length(a.vx)
+                if sqrt(a.vx(i).^2+a.vy(i).^2) <a.eccLim(2)*1.4 
+                patch(a.vx(i)+a.sz(i)/2*cx,a.vy(i)+a.sz(i)/2*cy,col(i,:));
+                end
+            end
+            plot(gridx,gridy,'k-','Color',[.5,.5,.5]); axis equal;
+            
+
+            m=abs(p.eccLim(2))*1.1;  set(gca,'xLim',[-m,m]);   set(gca,'YLim',[-m,m]);   axis equal
+
+            % Draw the corresponding 'electrodes' in cortical space, right
+            % hemisphere
+            figure(p.plotNums(3));  clf;   set (gcf, 'Name', "right hemi electrodes"); hold on
+            ecc = repmat(p.eccList,p.ncol+1,1);
+            ang = repmat(linspace(90.1,270,p.ncol+1)'*pi/180,1,length(p.eccList));
+            x = ecc.*cos(ang);   y = ecc.*sin(ang);
+            [gridx,gridy] = p2p_c.v2c_real(c,x,y);
+            plot(gridx,gridy,'k-','Color',[.5,.5,.5]);
+            ang = repmat(p.angList,p.ncol+1,1);
+            ecc = repmat(exp(linspace(-20,log(max(p.eccList)),p.ncol+1))',1,length(p.angList));
+            x = ecc.*cos(ang);  y = ecc.*sin(ang);
+            [gridx,gridy] = p2p_c.v2c_real(c,x,y);
+
+            id = a.vx<0;
+            p.z = a.vx+sqrt(-1)*a.vy;
+            [a.cx,a.cy] = p2p_c.v2c_real(c,a.vx,a.vy);
+            if strcmp(p.symShape, 'square')
+                shape_x = cos(-pi/4:pi/2:5*pi/4);   shape_y = sin(-pi/4:pi/2:5*pi/4);
+            elseif strcmp(p.symShape, 'circle')
+                shape_x = cos(linspace(-pi,pi,61));  shape_y = sin(linspace(-pi,pi,61));
+            end
+            for i=1:length(a.vx)
+                if id(i);    patch(a.cx(i)+p.electrodeSize/2*shape_x, a.cy(i)+p.electrodeSize/2*shape_y,col(i,:));  end
+            end
+            plot(gridx,gridy,'k-','Color',[.5,.5,.5]);
+            [limx,limy] = p2p_c.v2c_real(c,[-.01,-.01],max(p.eccList)*1.2*[1,-1]);            % find axis limits
+            set(gca,'XLim',[-3,limx(1)]);       set(gca,'YLim',limy*1.2);            axis equal
+
+            figure(p.plotNums(4));   set(gcf, 'Name', 'Colorbar');   clf
+            maxSz = ceil(max(a.sz)); %deg
+            img = repmat((1:(ceil(maxSz*scFac)))',1,2);
+            image(1,linspace(0,maxSz,size(col,1)),img);
+            colormap(cmap)
+            set(gca,'YDir','normal');     set(gca,'XTick',[]);      ylabel('Phosphene size (deg)'); set(gca,'FontSize',18);
+            axis equal;       axis tight
+            set(gcf,'PaperPosition',[1,1,1,1]);
+        end
+        function rfmaps = Array_Sim_GenerateRFmaps(a, v, c, params, range)
+            % Creates rfmaps for optimally spaced electrodes.
+            % takes in:
+            % a: (optional)  -  minimally has to define the arrayStyle and
+            % the number of electrodes in total
+            % v:  visual field parameters (optional)
+            % c: cortical parameters (optional)
+            % params, containing the folowing
+            % range: (optional) -  which values in T will be
+            % calculated, used for manual parallelization
+            % flag_flip: (optional) - flip RFs to save time, can be  no
+            % flip ([ 0 0 ], up down [1 0] (top to bottom), left right [0 1] (left to right), or up down
+            % left right from upper left visual field quadrant [ 1 1]
+            % overwrite = 0; % skip already existing file (0) or overwrite
+            % them (1)
+            %
+            % Once you've run this you can use these rfs to make movies using
+            % Array_Sim_Movies.m
+
+            v = p2p_c.define_visualmap(v);
+            c = p2p_c.define_cortex(c);
+            [c, v] = p2p_c.generate_corticalmap(c, v);
+            range = range(range<=height(a.T));
+
+            rfmaps = NaN(size(v.X, 1), size(v.X, 2), length(range));
+            for i = 1: length(range)
+                e = range(i);
+                disp(['electrode  ', num2str(e), ' within range ', num2str(min(range)) , '-', num2str(max(range))]);
+                v.e.x = a.T.vx(e);
+                v.e.y = a.T.vy(e);
+                c = p2p_c.define_electrodes(c, v);
+                c = p2p_c.generate_ef(c);
+                v = p2p_c.generate_corticalelectricalresponse(c, v); % create receptive field map for each electrode
+                rfmap = mean(v.e.rfmap, 3);
+                if ~isempty(find(isnan(rfmap(:)), 1))
+                    disp('NaNs,electrode likely outside the cortical sheet')
+                else
+                    if params.plot
+                        p2p_c.plotretgrid(500*(rfmap+min(rfmap(:))), v, gray(256), 2);
+                        figure(1); p2p_c.plotcortgrid(c.e.ef, c);
+                        drawnow;
+                        figure(2); p2p_c.plotretgrid(255*rfmap./max(rfmap(:)), v);
+                        drawnow;
+                    end
+
+                    tmp = (rfmap+params.scale(1))*params.scale(2);
+                    if max(tmp(:))>255
+                        error('rfmap values too high for scaling to uint8 using current parameters');
+                    elseif min(tmp(:))<0
+                        error('rfmap values too low for scaling to uint8 using current parameters');
+                    end
+                    tmp = uint8(tmp);
+                    rfmaps(:, :, i) = tmp;
+                end
+            end
+        end
+        function frame = Array_Sim_Movie(a, params, m)
+            % Simulates what a movie would look like using a given array
+
+            %% open input video file
+            vid_in = VideoReader(m.filename_in);
+            vid_dur  = vid_in.NumFrames;
+
+            %% open output video file
+            vid_out = VideoWriter(m.filename_out);
+            vid_out.FrameRate = vid_in.FrameRate;
+            open(vid_out);
+            sz = size(a.rfmaps);
+
+            for k = 1:vid_dur% for each frame
+                frame = readFrame(vid_in);
+                if k>=m.keepframes(1) && k<=m.keepframes(2)
+                    disp(['simulating frame ', num2str(k), ' out of ', num2str(vid_dur)]);
+                    if size(frame, 1)<size(frame, 2) % if the image isn't square
+                        off = 1+ ( (size(frame, 2)-size(frame, 1))/2);
+                        frame = frame(:, off-1:size(frame, 2)-off, :);
+                    end
+                    if ndims(frame)==3 % turn it grayscale
+                        frame = mean(frame, 3);
+                    end
+
+                    in_movie=imresize(frame, [sz(1), sz(2)], "bilinear");
+                    in_movie  = in_movie./255; % scale the movie between 0 -1
+
+                    img = zeros(sz(1:2)); 
+
+                    for e = 1:sz(3) % for each receptive field
+                        orig_rfmap =  (double(a.rfmaps(:, :, e))./params.scale(2))  - params.scale(1); % goes between  -1 and 1
+                        sz_rfmap = sqrt((sum(abs(orig_rfmap(:))))./(params.pixperdeg^2));
+                        orig_rfmap = orig_rfmap/sz_rfmap;
+                        if isempty(find(isnan(orig_rfmap(:)), 1))
+                            rfmap = orig_rfmap;
+                            amp=sum(rfmap(:).*in_movie(:)); % how bright should the phosphene be, between 0 -1
+                            img = img + (rfmap.*amp);
+                            if params.flag_flip(1)==1
+                                rfmap = flipud(orig_rfmap);
+                                amp=sum(rfmap(:).*in_movie(:)); % how bright should the phosphene be, between 0 -1
+                                img = img + (rfmap.*amp);
+                            end
+                            if params.flag_flip(2)==1
+                                rfmap = fliplr(orig_rfmap);
+                                amp=sum(rfmap(:).*in_movie(:)); % how bright should the phosphene be, between 0 -1
+                                img = img + (rfmap.*amp);
+                            end
+                            if sum(params.flag_flip)==2
+                                rfmap = fliplr(flipud(orig_rfmap));
+                                amp=sum(rfmap(:).*in_movie(:)); % how bright should the phosphene be, between 0 -1
+                                img = img + (rfmap.*amp);
+                            end
+                        end
+                    end
+                    % weirdly, because we're not really simulating the temporal part of the
+                    % model that relates electrical stimulation to brightness we don't include the nonlinearity
+                    % we assume we want the brightness to be related to the image intensity
+                    img =  img +  params.offset;
+                    figure(2)
+                    subplot(1,2,1)
+                    imagesc(in_movie(m.crop:end-m.crop, m.crop:end-m.crop)); colormap(gray(256));
+                    axis equal;    axis tight;    axis off
+                    subplot(1,2,2)
+                    image(img(m.crop:end-m.crop, m.crop:end-m.crop)); colormap(gray(256));
+                    axis equal; axis off;  axis tight
+                    drawnow
+                    frame = getframe(gca);
+                    writeVideo(vid_out,frame);
+                end
+            end
+            close(vid_out);
+        end
+
+
         %% transforms
         % transforms
         function c = define_cortical_size(c, v)
@@ -852,7 +1232,6 @@ classdef p2p_c
             vv =min(v.visfieldWidth);
             [c.corticalWidth(1), ~] = p2p_c.v2c_real(c, vv, 0);
         end
-
         function [vx, vy, ok] = c2v_real(c, cx, cy)
             % takes in real x, y numbers on the cortical grid and returns
             % real x, y numbers in visual space
@@ -1017,9 +1396,10 @@ classdef p2p_c
             %   colormap, figure number and a string to evaluate
             %  (e.g. ''title('''corticalsurface''')' or 'subplot(1, 2,1)';
 
-            if nargin<3 || isempty(varargin{1});  cmap = gray(256);   else cmap = varargin{1}; end
-            if nargin<4 || isempty(varargin{2}); figNum = 1;        else figNum = varargin{2}; end
-            if nargin<5 || isempty(varargin{3});  evalstr = '';      else evalstr = varargin{3}; end
+
+            if nargin<3 || isempty(varargin{1});  cmap = gray(256);   else; cmap = varargin{1}; end
+            if nargin<4 || isempty(varargin{2});  figNum = 1;  else; figNum = varargin{2}; end
+            if nargin<5 || isempty(varargin{3});  evalstr = '';      else;  evalstr = varargin{3}; end
 
             if isfield(c,'cropPix')
                 img(isnan(c.cropPix)) = NaN;
@@ -1027,7 +1407,6 @@ classdef p2p_c
                 cmap = [0,0,0;cmap];
             end
 
-            fH=figure(figNum);
             eval(evalstr); colormap(cmap);
             if ~isempty(img)
                 image(c.x, c.y, img); hold on
@@ -1134,7 +1513,6 @@ classdef p2p_c
             if p.sigma<0; err =err +  abs(p.sigma)*10.^6; end
         end
         function out = Gauss(p,v)
-            R = sqrt(v.X.^2+v.Y.^2);
             out = exp(-((v.X-p.x).^2+(v.Y-p.y).^2)/(2*p.sigma^2));
         end
         function [err,predcx,predcy,cx,cy] = fitElectrodeGrid(p,vx,vy)

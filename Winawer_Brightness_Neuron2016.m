@@ -20,18 +20,20 @@ eid = find(T.amp~=0 & ~isnan(T.brightness));
 T = T(eid, :);
 tp = p2p_c.define_temporalparameters();
 tp.model = 'compression';
-tp.slope =  0.4300;
-tp.power = 10;
+
 rng; %(11171964) % fix the random number generator, used Geoff's birthday in paper
 
 FITFLAG = 0;
 if FITFLAG
     Texp = T;
-    freeParams = { 'slope'};
+    freeParams = { 'sc_in', 'power'};
+    err = p2p_c.fit_brightness(tp,Texp);
     tp = fit('p2p_c.fit_brightness',tp,freeParams,Texp);
 end
 colorList  = [1 0 0; 0 1 0; 1 .7 0; .3 .3  1; 0 0 1 ]; % roughly match colors to Winawer paper
-sd = .2;
+sd = 0.08;
+allx = [];
+ally = [];
 for site =1:5
     eid =  find(T.electrode==site);
     if ~isempty(eid)
@@ -41,17 +43,21 @@ for site =1:5
         x= reshape(x, length(x), 1);  y = reshape(y, length(x), 1);
         ind = ~isnan(x) & ~isnan(y);
         if sum(ind)>0
-            h = scatter(x+sd*randn(size(x)), y+sd*randn(size(x)), 'o', 'MarkerFaceColor', colorList(site, :),  'MarkerEdgeColor','none','MarkerFaceAlpha',.5); hold on
+            h = scatter(x+0*randn(size(x)), y+sd*randn(size(x)), 'o', 'MarkerFaceColor', colorList(site, :),  'MarkerEdgeColor','none','MarkerFaceAlpha',.5); hold on
+            allx = cat(1, allx, x(ind));
+            ally = cat(1, ally, y(ind));
             corrval = corr(x(ind), y(ind));
             xlabel('Model Estimate');
             ylabel('Reported Brightness');
             set(gca, 'XLim', [0 11]);
             set(gca, 'YLim', [0 11]);
-     %       plot([0 11], [0 11], 'k')
-            t = text(8, site/2, ['corr = ', num2str(round(corrval, 3))]);
-            set(t, 'Color',colorList(site, :) )
+            plot([0 11], [0 11], 'k')
+%            t = text(8, site/2, ['corr = ', num2str(round(corrval, 3))]);
+  %          set(t, 'Color',colorList(site, :) )
         end
     end
 end
+[r, p] = corr(allx, ally);
+disp(['r =  ', num2str(round(r, 3)), ' p = ', num2str(round(p, 4)), ' df = ', num2str(length(allx)-2)]);
 axis square
 
